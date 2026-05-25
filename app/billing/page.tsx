@@ -264,16 +264,10 @@ export default function BillingPage() {
         description: `Total: ${totals.total.toLocaleString()} FBU | Patient: ${totals.patTotal.toLocaleString()} FBU`,
       })
 
-      // Prompt to print
-      setTimeout(() => {
-        if (confirm("Voulez-vous imprimer le reçu ?")) {
-          window.print()
-        }
-        setItems([])
-        setSelectedPatient(null)
-        setSearchQuery("")
-        setPaymentReference("")
-      }, 500)
+      // We no longer clear everything immediately to allow printing
+      // items will be cleared when a new search starts or manually
+      setSearchQuery("")
+      setPaymentReference("")
 
     } catch (err) {
       toast.error("Une erreur est survenue")
@@ -282,27 +276,59 @@ export default function BillingPage() {
     }
   }
 
+  // Auto-print effect
+  useEffect(() => {
+    if (lastInvoice) {
+      const timer = setTimeout(() => {
+        window.print()
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [lastInvoice])
+
   return (
     <div className="p-6 space-y-6">
       <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #thermal-receipt, #thermal-receipt * {
-            visibility: visible;
-          }
+        @media screen {
           #thermal-receipt {
+            display: none;
+          }
+        }
+        @media print {
+          /* Hide everything else */
+          body > #root > *, 
+          body > *:not(#thermal-receipt),
+          main, header, nav, footer, section, div:not(#thermal-receipt) {
+            display: none !important;
+          }
+          
+          #thermal-receipt {
+            display: block !important;
+            visibility: visible !important;
             position: absolute;
             left: 0;
             top: 0;
             width: 80mm;
-            padding: 5mm;
+            padding: 4mm;
             background: white;
             color: black;
             font-family: 'Courier New', Courier, monospace;
             font-size: 12px;
+            line-height: 1.2;
           }
+          
+          #thermal-receipt * {
+            visibility: visible !important;
+            display: block; /* Default for thermal style */
+          }
+          
+          #thermal-receipt .flex { display: flex !important; }
+          #thermal-receipt .justify-between { justify-content: space-between !important; }
+          #thermal-receipt .flex-col { flex-direction: column !important; }
+          #thermal-receipt table { display: table !important; width: 100% !important; }
+          #thermal-receipt tr { display: table-row !important; }
+          #thermal-receipt td, #thermal-receipt th { display: table-cell !important; }
+          
           @page {
             size: 80mm auto;
             margin: 0;
@@ -313,7 +339,7 @@ export default function BillingPage() {
       <PageHeader title="Facturation" description="Gérer les factures et les paiements immédiats" />
 
       {/* Hidden Thermal Receipt for Printing */}
-      <div id="thermal-receipt" className="hidden">
+      <div id="thermal-receipt">
         {lastInvoice && (
           <div className="flex flex-col items-center">
             <h2 className="text-xl font-bold uppercase tracking-tighter">MEDICARE HOSPITAL</h2>
