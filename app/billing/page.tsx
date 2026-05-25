@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { Search, Plus, Trash2, User, Shield, ShieldOff, Check, Loader2 } from "lucide-react"
+import { useState, useMemo, useEffect, useRef } from "react"
+import { Search, Plus, Trash2, User, Shield, ShieldOff, Check, Loader2, Printer, CreditCard, Banknote, Smartphone } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,6 +34,9 @@ interface Patient {
   isInsured: boolean
   insuranceId: string | null
   insuranceNumber: string | null
+  insuranceExpiryDate: string | null
+  insuranceCardNumber: string | null
+  coverageRate: string
   gender: string
   dateOfBirth: string
 }
@@ -79,6 +82,12 @@ export default function BillingPage() {
   const [loadingActs, setLoadingActs] = useState(false)
   const [loadingServices, setLoadingServices] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // New: Payment Method and Printing
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "card">("cash")
+  const [paymentReference, setPaymentReference] = useState("")
+  const [lastInvoice, setLastInvoice] = useState<any>(null)
+  const printRef = useRef<HTMLDivElement>(null)
 
   // Fetch acts and services on mount
   useEffect(() => {
@@ -166,14 +175,14 @@ export default function BillingPage() {
     }
 
     const rule = insuranceRules.find((r) => r.serviceId === act.serviceId)
-    if (!rule) {
-      return { insurancePart: 0, patientPart: total }
-    }
 
-    const rate = parseFloat(rule.coverageRate) / 100
+    // Use rule coverageRate, or fallback to patient global coverageRate
+    const rawRate = rule ? rule.coverageRate : selectedPatient.coverageRate
+    const rate = parseFloat(rawRate) / 100
+
     let covered = total * rate
 
-    if (rule.plafond) {
+    if (rule && rule.plafond) {
       const plafond = parseFloat(rule.plafond)
       if (covered > plafond) covered = plafond
     }
@@ -216,35 +225,56 @@ export default function BillingPage() {
     if (items.length === 0 || !selectedPatient) return
     setIsSubmitting(true)
     try {
+      const payload = {
+        patientId: selectedPatient.id,
+        totalAmount: totals.total,
+        insuranceAmount: totals.insTotal,
+        patientAmount: totals.patTotal,
+        paymentMethod,
+        paymentReference: paymentMethod === 'mobile_money' ? paymentReference : null,
+        items: items.map(i => ({
+          actId: i.actId,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          totalPrice: i.totalPrice,
+        }))
+      }
+
       const res = await fetch("/api/billing/invoices/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: selectedPatient.id,
-          totalAmount: totals.total,
-          insuranceAmount: totals.insTotal,
-          patientAmount: totals.patTotal,
-          items: items.map(i => ({
-            actId: i.actId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            totalPrice: i.totalPrice,
-          }))
-        })
+        body: JSON.stringify(payload)
       })
 
-      const data = await res.json()
+      const resData = await res.json()
       if (!res.ok) {
-        toast.error(data.error || "Échec de la validation de la facture")
+        toast.error(resData.error || "Échec de la validation de la facture")
         return
       }
 
-      toast.success("Facture validée avec succès", {
+      setLastInvoice({
+        ...resData.data,
+        patient: selectedPatient,
+        items: items,
+        paymentMethod,
+        paymentReference
+      })
+
+      toast.success("Facture validée et paiement enregistré", {
         description: `Total: ${totals.total.toLocaleString()} FBU | Patient: ${totals.patTotal.toLocaleString()} FBU`,
       })
-      setItems([])
-      setSelectedPatient(null)
-      setSearchQuery("")
+
+      // Prompt to print
+      setTimeout(() => {
+        if (confirm("Voulez-vous imprimer le reçu ?")) {
+          window.print()
+        }
+        setItems([])
+        setSelectedPatient(null)
+        setSearchQuery("")
+        setPaymentReference("")
+      }, 500)
+
     } catch (err) {
       toast.error("Une erreur est survenue")
     } finally {
@@ -254,7 +284,120 @@ export default function BillingPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Facturation" description="Créer des factures pour les consultations et actes médicaux" />
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #thermal-receipt, #thermal-receipt * {
+            visibility: visible;
+          }
+          #thermal-receipt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 80mm;
+            padding: 5mm;
+            background: white;
+            color: black;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+          }
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+        }
+      `}</style>
+
+      <PageHeader title="Facturation" description="Gérer les factures et les paiements immédiats" />
+
+      {/* Hidden Thermal Receipt for Printing */}
+      <div id="thermal-receipt" className="hidden">
+        {lastInvoice && (
+          <div className="flex flex-col items-center">
+            <h2 className="text-xl font-bold uppercase tracking-tighter">MEDICARE HOSPITAL</h2>
+            <p className="text-[10px] mb-2 font-mono">Service Médical de Qualité</p>
+            <div className="w-full border-t border-dashed border-black my-2" />
+
+            <div className="w-full space-y-1 font-mono text-[11px]">
+              <div className="flex justify-between">
+                <span>DATE:</span>
+                <span>{new Date(lastInvoice.createdAt).toLocaleString('fr-FR')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>FACT NO:</span>
+                <span>{lastInvoice.invoiceNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>PATIENT:</span>
+                <span className="uppercase text-right">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</span>
+              </div>
+              {lastInvoice.patient.insuranceNumber && (
+                <div className="flex justify-between">
+                  <span>MATRICULE:</span>
+                  <span>{lastInvoice.patient.insuranceNumber}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full border-t border-dashed border-black my-2" />
+
+            <table className="w-full text-left font-mono text-[11px]">
+              <thead>
+                <tr className="border-b border-black">
+                  <th className="font-bold">ITEM</th>
+                  <th className="text-right font-bold">PRIX</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lastInvoice.items.map((item: any) => (
+                  <tr key={item.id}>
+                    <td className="py-1">
+                      {item.actName}
+                      <br />
+                      <span className="text-[9px] italic">{item.actCode}</span>
+                    </td>
+                    <td className="text-right">{item.patientPart.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="w-full border-t border-dashed border-black my-2" />
+
+            <div className="w-full space-y-1 font-mono text-[11px]">
+              <div className="flex justify-between font-bold">
+                <span>TOTAL BRUT:</span>
+                <span>{totals.total.toLocaleString()} FBU</span>
+              </div>
+              <div className="flex justify-between">
+                <span>PART ASSUREANCE:</span>
+                <span>-{totals.insTotal.toLocaleString()} FBU</span>
+              </div>
+              <div className="flex justify-between text-base font-black">
+                <span>À PAYER:</span>
+                <span>{totals.patTotal.toLocaleString()} FBU</span>
+              </div>
+              <div className="w-full border-t border-black my-1" />
+              <div className="flex justify-between capitalize">
+                <span>MODE:</span>
+                <span>{lastInvoice.paymentMethod.replace('_', ' ')}</span>
+              </div>
+              {lastInvoice.paymentReference && (
+                <div className="flex justify-between">
+                  <span>REF:</span>
+                  <span>{lastInvoice.paymentReference}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full border-t border-dashed border-black my-4" />
+            <p className="text-center text-[10px] italic">*** Merci pour votre confiance ***</p>
+            <p className="text-center text-[8px] mt-1 font-mono">{lastInvoice.id}</p>
+          </div>
+        )}
+      </div>
 
       {/* Patient Search */}
       <Card className="border-primary/20 bg-primary/5">
@@ -342,29 +485,44 @@ export default function BillingPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-muted/50 p-2 rounded-md">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Genre</p>
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Genre</p>
                     <p className="font-medium capitalize">{selectedPatient.gender === 'male' ? 'Homme' : 'Femme'}</p>
                   </div>
                   <div className="bg-muted/50 p-2 rounded-md">
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Âge</p>
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Âge</p>
                     <p className="font-medium">{new Date().getFullYear() - new Date(selectedPatient.dateOfBirth).getFullYear()} ans</p>
                   </div>
                 </div>
 
                 <Separator />
 
-                <div>
+                <div className="space-y-3">
                   {selectedPatient.isInsured ? (
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3">
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3 space-y-2">
                       <div className="flex items-center gap-2 mb-1">
                         <Shield className="size-4 text-green-600" />
                         <span className="text-sm font-bold text-green-600">Patient Assuré</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Matricule: <span className="font-medium text-foreground">{selectedPatient.insuranceNumber}</span>
-                      </p>
+                      <div className="grid grid-cols-1 gap-1.5 text-[11px]">
+                        <p className="text-muted-foreground">
+                          Matricule: <span className="font-bold text-foreground">{selectedPatient.insuranceNumber}</span>
+                        </p>
+                        {selectedPatient.insuranceCardNumber && (
+                          <p className="text-muted-foreground">
+                            Carte: <span className="font-medium text-foreground">{selectedPatient.insuranceCardNumber}</span>
+                          </p>
+                        )}
+                        {selectedPatient.insuranceExpiryDate && (
+                          <p className="text-muted-foreground">
+                            Expire le: <span className="font-medium text-foreground">{selectedPatient.insuranceExpiryDate}</span>
+                          </p>
+                        )}
+                        <p className="text-muted-foreground">
+                          Couverture Générale: <span className="font-bold text-primary">{selectedPatient.coverageRate}%</span>
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-2">
@@ -378,7 +536,7 @@ export default function BillingPage() {
 
             <Card className="border-primary/20 shadow-lg">
               <CardHeader className="pb-3 pt-4">
-                <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary">Ajouter un Acte</CardTitle>
+                <CardTitle className="text-xs font-bold uppercase tracking-widest text-primary">Ajouter un Acte</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -423,7 +581,6 @@ export default function BillingPage() {
                     </SelectContent>
                   </Select>
                   <Button
-                    variant="primary"
                     className="w-full h-11 transition-all hover:translate-y-[-1px]"
                     onClick={addItem}
                     disabled={!selectedActId}
@@ -439,12 +596,18 @@ export default function BillingPage() {
           {/* Right Column: List & Summary */}
           <div className="lg:col-span-8 flex flex-col gap-6">
             <Card className="flex-1 shadow-sm border-0 bg-transparent ring-1 ring-border">
-              <CardHeader className="pb-3 border-b">
+              <CardHeader className="pb-3 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg">Détails de la Facture</CardTitle>
                     <CardDescription>{items.length} élément{items.length > 1 ? 's' : ''} ajouté{items.length > 1 ? 's' : ''}</CardDescription>
                   </div>
+                  {lastInvoice && (
+                    <Button variant="outline" size="sm" onClick={() => window.print()}>
+                      <Printer className="size-4 mr-2" />
+                      Réimprimer
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -490,44 +653,91 @@ export default function BillingPage() {
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-primary/5 border-primary/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-black uppercase text-primary tracking-widest">Couverture Assurance</CardTitle>
+              {/* Payment Section */}
+              <Card className="border-primary/20 shadow-md">
+                <CardHeader className="pb-3 pt-4">
+                  <CardTitle className="text-xs font-black uppercase text-primary tracking-widest">Paiement Immédiat</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-3xl font-black text-primary">{totals.insTotal.toLocaleString()}</p>
-                    <span className="text-xs font-bold text-primary/70">FBU</span>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant={paymentMethod === 'cash' ? 'default' : 'outline'}
+                      className={`h-16 flex-col gap-1 ${paymentMethod === 'cash' ? 'bg-primary border-primary' : ''}`}
+                      onClick={() => setPaymentMethod('cash')}
+                    >
+                      <Banknote className="size-5" />
+                      <span className="text-[10px] font-bold">CASH</span>
+                    </Button>
+                    <Button
+                      variant={paymentMethod === 'mobile_money' ? 'default' : 'outline'}
+                      className={`h-16 flex-col gap-1 ${paymentMethod === 'mobile_money' ? 'bg-primary border-primary' : ''}`}
+                      onClick={() => setPaymentMethod('mobile_money')}
+                    >
+                      <Smartphone className="size-5" />
+                      <span className="text-[10px] font-bold uppercase leading-none">MOB MONEY</span>
+                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 italic">
-                    Calculé selon les règles de service de la mutuelle.
-                  </p>
+
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Référence Transaction</label>
+                      <Input
+                        placeholder="Ex: PP2304..."
+                        className="h-10 text-sm font-mono"
+                        value={paymentReference}
+                        onChange={(e) => setPaymentReference(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  <div className="bg-muted/30 p-3 rounded-lg flex items-center justify-between border border-dashed">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Agréé par</p>
+                      <p className="text-xs font-medium">Caissier Principal</p>
+                    </div>
+                    <Badge variant="outline" className="bg-background text-xs opacity-70">
+                      AUTO-PAY
+                    </Badge>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[100px]" />
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-widest underline decoration-primary/50 underline-offset-4">Net à Payer (Patient)</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-4xl font-black text-white">{totals.patTotal.toLocaleString()}</p>
-                    <span className="text-[10px] font-black text-slate-500 tracking-tighter uppercase">Burundi Francs (FBU)</span>
-                  </div>
-                  <Button
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12 text-base shadow-lg shadow-primary/20"
-                    disabled={items.length === 0 || isSubmitting}
-                    onClick={handleValidate}
-                  >
-                    {isSubmitting ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Traitement...</>
-                    ) : (
-                      <><Check className="mr-2 h-5 w-5" /> Valider la Facture</>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+              {/* Summary and Validation */}
+              <div className="space-y-6">
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 py-3 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground font-medium">Sous-total :</span>
+                      <span className="font-bold">{totals.total.toLocaleString()} FBU</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-primary">
+                      <span className="font-medium">Assurance :</span>
+                      <span className="font-bold">-{totals.insTotal.toLocaleString()} FBU</span>
+                    </div>
+                    <Separator className="bg-primary/10" />
+                    <div className="flex justify-between items-baseline pt-1">
+                      <span className="text-[10px] font-black uppercase text-slate-500">Net Patient :</span>
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-primary">{totals.patTotal.toLocaleString()}</p>
+                        <p className="text-[8px] font-bold text-muted-foreground">FRANC BURUNDAIS</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Button
+                  className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-black text-base shadow-2xl relative overflow-hidden group"
+                  disabled={items.length === 0 || isSubmitting || (paymentMethod === 'mobile_money' && !paymentReference)}
+                  onClick={handleValidate}
+                >
+                  <div className="absolute inset-0 bg-primary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  {isSubmitting ? (
+                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Traitement...</>
+                  ) : (
+                    <><Check className="mr-2 h-6 w-6 text-primary" /> ENREGISTRER & IMPRIMER</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

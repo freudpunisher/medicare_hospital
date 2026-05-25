@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { invoices, invoiceItems } from '@/db/schema'
-import { v4 as uuidv4 } from 'uuid'
+import { invoices, invoiceItems, payments } from '@/db/schema'
 
 export async function POST(req: Request) {
     try {
@@ -14,6 +13,8 @@ export async function POST(req: Request) {
             visitId,
             notes,
             items,
+            paymentMethod,
+            paymentReference,
         } = body
 
         if (!patientId || !items || items.length === 0) {
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
         const randomStr = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
         const invoiceNumber = `INV-${dateStr}-${randomStr}`
 
-        // Use a transaction to ensure both invoice and items are created
+        // Use a transaction to ensure invoice, items, and payment are created together
         const result = await db.transaction(async (tx) => {
             const [invoice] = await tx
                 .insert(invoices)
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
                     patientAmount: patientAmount.toString(),
                     visitId,
                     notes,
-                    status: 'pending',
+                    status: paymentMethod ? 'paid' : 'pending',
                 })
                 .returning()
 
@@ -52,12 +53,24 @@ export async function POST(req: Request) {
 
             await tx.insert(invoiceItems).values(itemsToInsert)
 
+            // Automatically create payment if method provided
+            if (paymentMethod) {
+                await tx.insert(payments).values({
+                    invoiceId: invoice.id,
+                    patientId,
+                    amount: patientAmount.toString(),
+                    paymentMethod,
+                    referenceNumber: paymentReference || null,
+                    notes: 'Automatic payment on invoice creation',
+                })
+            }
+
             return invoice
         })
 
         return NextResponse.json({ data: result }, { status: 201 })
     } catch (error) {
-        console.error('Failed to create invoice:', error)
-        return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 })
+        console.error('Failed to create invoice and payment:', error)
+        return NextResponse.json({ error: 'Failed to create invoice and payment' }, { status: 500 })
     }
 }
