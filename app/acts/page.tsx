@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Plus, ShieldAlert } from "lucide-react"
+import { Plus, ShieldAlert, PowerOff, Power } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -66,6 +66,7 @@ export default function ActsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -95,7 +96,7 @@ export default function ActsPage() {
       const specialtiesData = await specialtiesRes.json()
 
       if (!actsRes.ok) {
-        setError(actsData?.error || "Failed to fetch medical acts")
+        setError(actsData?.error || "Impossible de charger les actes médicaux")
         return
       }
 
@@ -103,14 +104,17 @@ export default function ActsPage() {
       if (servicesRes.ok) setServices(servicesData.data || [])
       if (specialtiesRes.ok) setSpecialties(specialtiesData.data || [])
     } catch (err) {
-      setError("Failed to fetch medical acts")
+      setError("Impossible de charger les actes médicaux")
     } finally {
       setLoading(false)
     }
   }
 
   async function handleAdd() {
-    if (!form.code || !form.name || !form.serviceId) return
+    if (!form.code || !form.name || !form.serviceId) {
+      toast.error("Veuillez remplir tous les champs obligatoires")
+      return
+    }
     try {
       const res = await fetch("/api/acts/create", {
         method: "POST",
@@ -127,7 +131,7 @@ export default function ActsPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data?.error || "Failed to add medical act")
+        toast.error(data?.error || "Échec de l'ajout de l'acte médical")
         return
       }
       setOpen(false)
@@ -141,23 +145,47 @@ export default function ActsPage() {
         isActive: true,
       })
       await fetchAll()
-      toast.success("Medical act added successfully")
+      toast.success("Acte médical ajouté avec succès")
     } catch (err) {
-      toast.error("Failed to add medical act")
+      toast.error("Échec de l'ajout de l'acte médical")
+    }
+  }
+
+  async function handleToggleActive(act: Act) {
+    setTogglingId(act.id)
+    try {
+      const res = await fetch(`/api/acts/${act.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !act.isActive }),
+      })
+      const resData = await res.json()
+      if (!res.ok) {
+        toast.error(resData?.error || "Échec de la mise à jour du statut")
+        return
+      }
+      setData((prev) =>
+        prev.map((a) => (a.id === act.id ? { ...a, isActive: !act.isActive } : a))
+      )
+      toast.success(act.isActive ? "Acte désactivé" : "Acte activé")
+    } catch (err) {
+      toast.error("Échec de la mise à jour du statut")
+    } finally {
+      setTogglingId(null)
     }
   }
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Medical Acts" description="Manage billable medical acts and procedures">
+      <PageHeader title="Actes Médicaux" description="Gérer les actes et procédures médicaux facturables">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="size-4 mr-1" />Add Act</Button>
+            <Button size="sm"><Plus className="size-4 mr-1" />Ajouter un acte</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Add New Medical Act</DialogTitle>
-              <DialogDescription>Enter act details below.</DialogDescription>
+              <DialogTitle>Nouvel acte médical</DialogTitle>
+              <DialogDescription>Renseignez les détails de l'acte ci-dessous.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -168,14 +196,15 @@ export default function ActsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
                     }
-                    placeholder="e.g. CONS-GEN"
+                    placeholder="ex. CONS-GEN"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Name</Label>
+                  <Label>Nom</Label>
                   <Input
                     value={form.name}
                     onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="ex. Consultation générale"
                   />
                 </div>
               </div>
@@ -187,7 +216,7 @@ export default function ActsPage() {
                     onValueChange={(v) => setForm((f) => ({ ...f, serviceId: v }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select service" />
+                      <SelectValue placeholder="Choisir un service" />
                     </SelectTrigger>
                     <SelectContent>
                       {services.filter((s) => s.isActive).map((s) => (
@@ -199,7 +228,7 @@ export default function ActsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Specialty (optional)</Label>
+                  <Label>Spécialité (optionnel)</Label>
                   <Select
                     value={form.specialtyId ?? "none"}
                     onValueChange={(v) =>
@@ -207,10 +236,10 @@ export default function ActsPage() {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="None" />
+                      <SelectValue placeholder="Aucune" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="none">Aucune</SelectItem>
                       {specialties.filter((s) => s.isActive).map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.name}
@@ -221,11 +250,11 @@ export default function ActsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Base Price ($)</Label>
+                <Label>Prix de base (FBU)</Label>
                 <Input
                   type="number"
                   min={0}
-                  step={0.01}
+                  step={1}
                   value={form.basePrice}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, basePrice: parseFloat(e.target.value) || 0 }))
@@ -239,12 +268,12 @@ export default function ActsPage() {
                     setForm((f) => ({ ...f, requiresAuthorization: c }))
                   }
                 />
-                <Label>Requires authorization</Label>
+                <Label>Nécessite une autorisation</Label>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={handleAdd}>Add Act</Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+              <Button onClick={handleAdd}>Ajouter</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -253,20 +282,23 @@ export default function ActsPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading medical acts...</div>
+            <div className="p-8 text-center text-muted-foreground">Chargement des actes médicaux...</div>
           ) : error ? (
             <div className="p-8 text-center text-red-600">{error}</div>
+          ) : data.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">Aucun acte médical trouvé</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Nom</TableHead>
                   <TableHead>Service</TableHead>
-                  <TableHead>Specialty</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Authorization</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Spécialité</TableHead>
+                  <TableHead>Prix (FBU)</TableHead>
+                  <TableHead>Autorisation</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,10 +317,10 @@ export default function ActsPage() {
                       <TableCell className="text-muted-foreground">{service?.name ?? "N/A"}</TableCell>
                       <TableCell className="text-muted-foreground">{specialty?.name ?? "-"}</TableCell>
                       <TableCell className="font-medium text-foreground">
-                        $
                         {Number.isNaN(price)
                           ? act.basePrice
-                          : price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          : price.toLocaleString("fr-FR")}{" "}
+                        <span className="text-xs text-muted-foreground">FBU</span>
                       </TableCell>
                       <TableCell>
                         {act.requiresAuthorization ? (
@@ -297,14 +329,33 @@ export default function ActsPage() {
                             className="border-warning/30 bg-warning/10 text-warning text-xs"
                           >
                             <ShieldAlert className="size-3 mr-1" />
-                            Required
+                            Requise
                           </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">No</span>
+                          <span className="text-xs text-muted-foreground">Non</span>
                         )}
                       </TableCell>
                       <TableCell>
                         <StatusBadge active={act.isActive} />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={togglingId === act.id}
+                          onClick={() => handleToggleActive(act)}
+                          className={
+                            act.isActive
+                              ? "text-destructive border-destructive/30 hover:bg-destructive/10"
+                              : "text-green-600 border-green-600/30 hover:bg-green-50"
+                          }
+                        >
+                          {act.isActive ? (
+                            <><PowerOff className="size-3 mr-1" />Désactiver</>
+                          ) : (
+                            <><Power className="size-3 mr-1" />Activer</>
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   )

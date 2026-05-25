@@ -259,6 +259,31 @@ export const medicalActs = pgTable(
 )
 
 // ============================================================
+// INSURANCE SERVICE RULES TABLE
+// ============================================================
+export const insuranceServiceRules = pgTable(
+  'insurance_service_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    insuranceId: uuid('insurance_id')
+      .notNull()
+      .references(() => insurances.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    serviceId: uuid('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    coverageRate: decimal('coverage_rate', { precision: 5, scale: 2 }).notNull().default('0'),
+    plafond: decimal('plafond', { precision: 10, scale: 2 }),
+    requiresAuthorization: boolean('requires_authorization').notNull().default(false),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    insuranceIdIdx: index('insurance_service_rules_insurance_id_idx').on(table.insuranceId),
+    serviceIdIdx: index('insurance_service_rules_service_id_idx').on(table.serviceId),
+  })
+)
+
+// ============================================================
 // INSURANCE CLAIMS TABLE
 // ============================================================
 export const insuranceClaims = pgTable(
@@ -932,6 +957,7 @@ export const insurancesRelations = relations(insurances, ({ many }) => ({
   patientInsurances: many(patientInsurances),
   claims: many(insuranceClaims),
   payments: many(insurancePayments),
+  rules: many(insuranceServiceRules),
 }))
 
 export const patientsRelations = relations(patients, ({ one, many }) => ({
@@ -952,6 +978,7 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
 
 export const servicesRelations = relations(services, ({ many }) => ({
   medicalActs: many(medicalActs),
+  rules: many(insuranceServiceRules),
 }))
 
 export const insuranceClaimsRelations = relations(insuranceClaims, ({ one, many }) => ({
@@ -1052,6 +1079,17 @@ export const patientInsurancesRelations = relations(patientInsurances, ({ one })
   insurance: one(insurances, {
     fields: [patientInsurances.insuranceId],
     references: [insurances.id],
+  }),
+}))
+
+export const insuranceServiceRulesRelations = relations(insuranceServiceRules, ({ one }) => ({
+  insurance: one(insurances, {
+    fields: [insuranceServiceRules.insuranceId],
+    references: [insurances.id],
+  }),
+  service: one(services, {
+    fields: [insuranceServiceRules.serviceId],
+    references: [services.id],
   }),
 }))
 
