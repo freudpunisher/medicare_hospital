@@ -10,6 +10,7 @@ export async function POST(req: Request) {
             totalAmount,
             insuranceAmount,
             patientAmount,
+            discountAmount,
             visitId,
             notes,
             items,
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
                     totalAmount: totalAmount.toString(),
                     insuranceAmount: insuranceAmount.toString(),
                     patientAmount: patientAmount.toString(),
+                    discountAmount: (discountAmount || 0).toString(),
                     visitId,
                     notes,
                     status: paymentMethod ? 'paid' : 'pending',
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
                     amount: patientAmount.toString(),
                     paymentMethod,
                     referenceNumber: paymentReference || null,
-                    notes: 'Automatic payment on invoice creation',
+                    notes: `Automatic payment on invoice creation${discountAmount > 0 ? ` (Reduction: ${discountAmount} FBU)` : ''}`,
                 })
             }
 

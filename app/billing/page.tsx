@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Search, Plus, Trash2, User, Shield, ShieldOff, Check, Loader2, Printer, CreditCard, Banknote, Smartphone } from "lucide-react"
+import { Search, Plus, Trash2, User, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,6 +65,8 @@ interface InvoiceItem {
   insurancePart: number
   patientPart: number
   totalPrice: number
+  coverageRate: number
+  coverageSource: 'rule' | 'patient' | 'none'
 }
 
 export default function BillingPage() {
@@ -83,11 +85,11 @@ export default function BillingPage() {
   const [loadingServices, setLoadingServices] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // New: Payment Method and Printing
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "card">("cash")
   const [paymentReference, setPaymentReference] = useState("")
+  const [discountAmount, setDiscountAmount] = useState(0)
   const [lastInvoice, setLastInvoice] = useState<any>(null)
-  const printRef = useRef<HTMLDivElement>(null)
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   // Fetch acts and services on mount
   useEffect(() => {
@@ -166,21 +168,20 @@ export default function BillingPage() {
     return { total, insTotal, patTotal }
   }, [items])
 
-  function calculateCoverage(act: Act, qty: number): { insurancePart: number; patientPart: number } {
+  function calculateCoverage(act: Act, qty: number): { insurancePart: number; patientPart: number; rate: number; source: 'rule' | 'patient' | 'none' } {
     const unitPrice = parseFloat(act.basePrice)
     const total = unitPrice * qty
 
     if (!selectedPatient?.isInsured || !selectedPatient.insuranceId) {
-      return { insurancePart: 0, patientPart: total }
+      return { insurancePart: 0, patientPart: total, rate: 0, source: 'none' }
     }
 
     const rule = insuranceRules.find((r) => r.serviceId === act.serviceId)
-
-    // Use rule coverageRate, or fallback to patient global coverageRate
+    const source = rule ? 'rule' : 'patient'
     const rawRate = rule ? rule.coverageRate : selectedPatient.coverageRate
-    const rate = parseFloat(rawRate) / 100
+    const rate = parseFloat(rawRate)
 
-    let covered = total * rate
+    let covered = total * (rate / 100)
 
     if (rule && rule.plafond) {
       const plafond = parseFloat(rule.plafond)
@@ -189,7 +190,9 @@ export default function BillingPage() {
 
     return {
       insurancePart: Math.round(covered),
-      patientPart: total - Math.round(covered)
+      patientPart: total - Math.round(covered),
+      rate,
+      source
     }
   }
 
@@ -198,7 +201,7 @@ export default function BillingPage() {
     const act = acts.find((a) => a.id === selectedActId)
     if (!act) return
 
-    const { insurancePart, patientPart } = calculateCoverage(act, 1)
+    const { insurancePart, patientPart, rate, source } = calculateCoverage(act, 1)
 
     setItems((prev) => [
       ...prev,
@@ -212,6 +215,8 @@ export default function BillingPage() {
         insurancePart,
         patientPart,
         totalPrice: parseFloat(act.basePrice),
+        coverageRate: rate,
+        coverageSource: source
       },
     ])
     setSelectedActId("")
@@ -221,6 +226,77 @@ export default function BillingPage() {
     setItems((prev) => prev.filter((i) => i.id !== id))
   }
 
+  const handlePrint = (invoiceData: any) => {
+    if (!invoiceData) return;
+
+    const receiptHtml = receiptRef.current?.innerHTML;
+    if (!receiptHtml) return;
+
+    const win = window.open("", "_blank", "width=800,height=900");
+    if (!win) return;
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>Receipt - ${invoiceData.invoiceNumber}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              font-size: 11px; 
+              background: #fff; 
+              width: 80mm; 
+              padding: 4mm;
+              margin: 0 auto;
+            }
+            .flex { display: flex; }
+            .flex-col { flex-direction: column; }
+            .items-center { align-items: center; }
+            .justify-between { justify-content: space-between; }
+            .w-full { width: 100%; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .text-red { color: #f00; }
+            .font-bold { font-weight: bold; }
+            .font-black { font-weight: 900; }
+            .uppercase { text-transform: uppercase; }
+            .italic { font-style: italic; }
+            .my-2 { margin-top: 8px; margin-bottom: 8px; }
+            .my-4 { margin-top: 16px; margin-bottom: 16px; }
+            .mb-2 { margin-bottom: 8px; }
+            .border-t { border-top: 1px solid #000; }
+            .border-b { border-bottom: 1px solid #000; }
+            .border-dashed { border-style: dashed; }
+            .table { display: table; width: 100%; }
+            .table-row { display: table-row; }
+            .table-cell { display: table-cell; padding-top: 4px; padding-bottom: 4px; }
+            @media print {
+              body { width: 80mm; margin: 0; padding: 4mm; }
+              @page { size: 80mm auto; margin: 0; }
+            }
+          </style>
+        </head>
+        <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+          <div id="print-content">
+            ${receiptHtml}
+            ${invoiceData.discountAmount > 0 ? `
+              <div class="border-t border-dashed my-2"></div>
+              <div class="flex justify-between font-bold text-red">
+                <span>RÉDUCTION:</span>
+                <span>-${invoiceData.discountAmount.toLocaleString()} FBU</span>
+              </div>
+              <div class="flex justify-between font-black mt-1" style="font-size: 14px;">
+                <span>NET PATIENT:</span>
+                <span>${(invoiceData.patientAmount).toLocaleString()} FBU</span>
+              </div>
+            ` : ""}
+          </div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+  };
+
   async function handleValidate() {
     if (items.length === 0 || !selectedPatient) return
     setIsSubmitting(true)
@@ -229,7 +305,8 @@ export default function BillingPage() {
         patientId: selectedPatient.id,
         totalAmount: totals.total,
         insuranceAmount: totals.insTotal,
-        patientAmount: totals.patTotal,
+        patientAmount: totals.patTotal - discountAmount,
+        discountAmount: discountAmount,
         paymentMethod,
         paymentReference: paymentMethod === 'mobile_money' ? paymentReference : null,
         items: items.map(i => ({
@@ -252,22 +329,32 @@ export default function BillingPage() {
         return
       }
 
-      setLastInvoice({
+      const invoiceData = {
         ...resData.data,
         patient: selectedPatient,
-        items: items,
+        items: [...items],
         paymentMethod,
-        paymentReference
-      })
+        paymentReference,
+        totals: { ...totals }
+      };
+
+      setLastInvoice(invoiceData)
 
       toast.success("Facture validée et paiement enregistré", {
-        description: `Total: ${totals.total.toLocaleString()} FBU | Patient: ${totals.patTotal.toLocaleString()} FBU`,
+        description: `Total: ${totals.total.toLocaleString()} FBU | Patient: ${(totals.patTotal - discountAmount).toLocaleString()} FBU`,
       })
 
-      // We no longer clear everything immediately to allow printing
-      // items will be cleared when a new search starts or manually
-      setSearchQuery("")
-      setPaymentReference("")
+      // Immediate print using the data we just got
+      // Delay slightly to allow receiptRef to potentially update if it was relying on lastInvoice
+      // But actually, we can pass invoiceData directly if we want to be safe
+      setTimeout(() => {
+        handlePrint(invoiceData);
+        setItems([])
+        setSelectedPatient(null)
+        setSearchQuery("")
+        setPaymentReference("")
+        setDiscountAmount(0)
+      }, 300);
 
     } catch (err) {
       toast.error("Une erreur est survenue")
@@ -276,153 +363,95 @@ export default function BillingPage() {
     }
   }
 
-  // Auto-print effect
-  useEffect(() => {
-    if (lastInvoice) {
-      const timer = setTimeout(() => {
-        window.print()
-      }, 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [lastInvoice])
-
   return (
     <div className="p-6 space-y-6">
-      <style jsx global>{`
-        @media screen {
-          #thermal-receipt {
-            display: none;
-          }
-        }
-        @media print {
-          /* Hide everything else */
-          body > #root > *, 
-          body > *:not(#thermal-receipt),
-          main, header, nav, footer, section, div:not(#thermal-receipt) {
-            display: none !important;
-          }
-          
-          #thermal-receipt {
-            display: block !important;
-            visibility: visible !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 80mm;
-            padding: 4mm;
-            background: white;
-            color: black;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            line-height: 1.2;
-          }
-          
-          #thermal-receipt * {
-            visibility: visible !important;
-            display: block; /* Default for thermal style */
-          }
-          
-          #thermal-receipt .flex { display: flex !important; }
-          #thermal-receipt .justify-between { justify-content: space-between !important; }
-          #thermal-receipt .flex-col { flex-direction: column !important; }
-          #thermal-receipt table { display: table !important; width: 100% !important; }
-          #thermal-receipt tr { display: table-row !important; }
-          #thermal-receipt td, #thermal-receipt th { display: table-cell !important; }
-          
-          @page {
-            size: 80mm auto;
-            margin: 0;
-          }
-        }
-      `}</style>
-
       <PageHeader title="Facturation" description="Gérer les factures et les paiements immédiats" />
 
-      {/* Hidden Thermal Receipt for Printing */}
-      <div id="thermal-receipt">
-        {lastInvoice && (
-          <div className="flex flex-col items-center">
-            <h2 className="text-xl font-bold uppercase tracking-tighter">MEDICARE HOSPITAL</h2>
-            <p className="text-[10px] mb-2 font-mono">Service Médical de Qualité</p>
-            <div className="w-full border-t border-dashed border-black my-2" />
+      {/* Off-screen thermal receipt container for capturing HTML */}
+      <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
+        <div ref={receiptRef}>
+          {lastInvoice && (
+            <div className="flex-col items-center w-full">
+              <div className="text-center">
+                <h2 className="font-bold uppercase" style={{ fontSize: '16px' }}>MEDICARE HOSPITAL</h2>
+                <p className="mb-2" style={{ fontSize: '10px' }}>Service Médical de Qualité</p>
+              </div>
+              <div className="w-full border-t border-dashed my-2" />
 
-            <div className="w-full space-y-1 font-mono text-[11px]">
-              <div className="flex justify-between">
-                <span>DATE:</span>
-                <span>{new Date(lastInvoice.createdAt).toLocaleString('fr-FR')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>FACT NO:</span>
-                <span>{lastInvoice.invoiceNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>PATIENT:</span>
-                <span className="uppercase text-right">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</span>
-              </div>
-              {lastInvoice.patient.insuranceNumber && (
+              <div className="w-full flex-col">
                 <div className="flex justify-between">
-                  <span>MATRICULE:</span>
-                  <span>{lastInvoice.patient.insuranceNumber}</span>
+                  <span>DATE:</span>
+                  <span>{new Date(lastInvoice.createdAt).toLocaleString('fr-FR')}</span>
                 </div>
-              )}
-            </div>
+                <div className="flex justify-between">
+                  <span>FACT NO:</span>
+                  <span>{lastInvoice.invoiceNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>PATIENT:</span>
+                  <span className="uppercase text-right">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</span>
+                </div>
+                {lastInvoice.patient.insuranceNumber && (
+                  <div className="flex justify-between">
+                    <span>MATRICULE:</span>
+                    <span>{lastInvoice.patient.insuranceNumber}</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="w-full border-t border-dashed border-black my-2" />
+              <div className="w-full border-t border-dashed my-2" />
 
-            <table className="w-full text-left font-mono text-[11px]">
-              <thead>
-                <tr className="border-b border-black">
-                  <th className="font-bold">ITEM</th>
-                  <th className="text-right font-bold">PRIX</th>
-                </tr>
-              </thead>
-              <tbody>
+              <div className="table">
+                <div className="table-row border-b font-bold">
+                  <div className="table-cell">ITEM</div>
+                  <div className="table-cell text-right">PRIX</div>
+                </div>
                 {lastInvoice.items.map((item: any) => (
-                  <tr key={item.id}>
-                    <td className="py-1">
+                  <div key={item.id} className="table-row">
+                    <div className="table-cell py-1">
                       {item.actName}
                       <br />
-                      <span className="text-[9px] italic">{item.actCode}</span>
-                    </td>
-                    <td className="text-right">{item.patientPart.toLocaleString()}</td>
-                  </tr>
+                      <span className="italic" style={{ fontSize: '9px' }}>{item.actCode}</span>
+                    </div>
+                    <div className="table-cell text-right">{item.patientPart.toLocaleString()}</div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
 
-            <div className="w-full border-t border-dashed border-black my-2" />
+              <div className="w-full border-t border-dashed my-2" />
 
-            <div className="w-full space-y-1 font-mono text-[11px]">
-              <div className="flex justify-between font-bold">
-                <span>TOTAL BRUT:</span>
-                <span>{totals.total.toLocaleString()} FBU</span>
-              </div>
-              <div className="flex justify-between">
-                <span>PART ASSUREANCE:</span>
-                <span>-{totals.insTotal.toLocaleString()} FBU</span>
-              </div>
-              <div className="flex justify-between text-base font-black">
-                <span>À PAYER:</span>
-                <span>{totals.patTotal.toLocaleString()} FBU</span>
-              </div>
-              <div className="w-full border-t border-black my-1" />
-              <div className="flex justify-between capitalize">
-                <span>MODE:</span>
-                <span>{lastInvoice.paymentMethod.replace('_', ' ')}</span>
-              </div>
-              {lastInvoice.paymentReference && (
-                <div className="flex justify-between">
-                  <span>REF:</span>
-                  <span>{lastInvoice.paymentReference}</span>
+              <div className="w-full flex-col">
+                <div className="flex justify-between font-bold">
+                  <span>TOTAL BRUT:</span>
+                  <span>{lastInvoice.totals.total.toLocaleString()} FBU</span>
                 </div>
-              )}
-            </div>
+                <div className="flex justify-between">
+                  <span>PART ASSUREANCE:</span>
+                  <span>-{lastInvoice.totals.insTotal.toLocaleString()} FBU</span>
+                </div>
+                <div className="flex justify-between font-black" style={{ fontSize: '14px' }}>
+                  <span>À PAYER:</span>
+                  <span>{lastInvoice.totals.patTotal.toLocaleString()} FBU</span>
+                </div>
+                <div className="w-full border-t my-1" />
+                <div className="flex justify-between">
+                  <span>MODE:</span>
+                  <span className="uppercase">{lastInvoice.paymentMethod.replace('_', ' ')}</span>
+                </div>
+                {lastInvoice.paymentReference && (
+                  <div className="flex justify-between">
+                    <span>REF:</span>
+                    <span>{lastInvoice.paymentReference}</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="w-full border-t border-dashed border-black my-4" />
-            <p className="text-center text-[10px] italic">*** Merci pour votre confiance ***</p>
-            <p className="text-center text-[8px] mt-1 font-mono">{lastInvoice.id}</p>
-          </div>
-        )}
+              <div className="w-full border-t border-dashed my-4" />
+              <p className="text-center italic" style={{ fontSize: '10px' }}>*** Merci pour votre confiance ***</p>
+              <p className="text-center mt-1" style={{ fontSize: '8px' }}>{lastInvoice.id}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Patient Search */}
@@ -629,7 +658,7 @@ export default function BillingPage() {
                     <CardDescription>{items.length} élément{items.length > 1 ? 's' : ''} ajouté{items.length > 1 ? 's' : ''}</CardDescription>
                   </div>
                   {lastInvoice && (
-                    <Button variant="outline" size="sm" onClick={() => window.print()}>
+                    <Button variant="outline" size="sm" onClick={() => handlePrint(lastInvoice)}>
                       <Printer className="size-4 mr-2" />
                       Réimprimer
                     </Button>
@@ -653,7 +682,20 @@ export default function BillingPage() {
                           <div className="flex items-center gap-6 text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
                             <span>Prix: {item.unitPrice.toLocaleString()} FBU</span>
                             {selectedPatient.isInsured && (
-                              <span className="text-primary">Part Mutuelle: {item.insurancePart.toLocaleString()} FBU</span>
+                              <div className="flex items-center gap-2">
+                                <span className={item.coverageSource === 'rule' ? 'text-primary font-bold' : 'text-slate-500'}>
+                                  Part Mutuelle ({item.coverageRate}%): {item.insurancePart.toLocaleString()} FBU
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[8px] h-4 px-1 leading-none uppercase ${item.coverageSource === 'rule'
+                                    ? 'border-primary/30 bg-primary/5 text-primary'
+                                    : 'border-slate-300 bg-slate-50 text-slate-500'
+                                    }`}
+                                >
+                                  {item.coverageSource === 'rule' ? 'Règle Spécifique' : 'Tarif Patient'}
+                                </Badge>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -716,6 +758,19 @@ export default function BillingPage() {
                     </div>
                   )}
 
+                  <div className="space-y-1.5 pt-2 border-t border-dashed">
+                    <label className="text-[10px] font-black text-orange-600 uppercase ml-1 flex items-center gap-1">
+                      <Tag className="size-3" /> Accorder une Réduction (FBU)
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="Montant de la réduction..."
+                      className="h-10 text-sm border-orange-200 focus:border-orange-400 focus:ring-orange-200"
+                      value={discountAmount || ''}
+                      onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value)))}
+                    />
+                  </div>
+
                   <div className="bg-muted/30 p-3 rounded-lg flex items-center justify-between border border-dashed">
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase">Agréé par</p>
@@ -740,11 +795,19 @@ export default function BillingPage() {
                       <span className="font-medium">Assurance :</span>
                       <span className="font-bold">-{totals.insTotal.toLocaleString()} FBU</span>
                     </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between items-center text-xs text-orange-600 font-bold italic">
+                        <span>Réduction :</span>
+                        <span>-{discountAmount.toLocaleString()} FBU</span>
+                      </div>
+                    )}
                     <Separator className="bg-primary/10" />
                     <div className="flex justify-between items-baseline pt-1">
                       <span className="text-[10px] font-black uppercase text-slate-500">Net Patient :</span>
                       <div className="text-right">
-                        <p className="text-2xl font-black text-primary">{totals.patTotal.toLocaleString()}</p>
+                        <p className="text-2xl font-black text-primary animate-in zoom-in duration-300" key={discountAmount}>
+                          {(totals.patTotal - discountAmount).toLocaleString()}
+                        </p>
                         <p className="text-[8px] font-bold text-muted-foreground">FRANC BURUNDAIS</p>
                       </div>
                     </div>

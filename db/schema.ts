@@ -356,6 +356,7 @@ export const invoices = pgTable(
     visitId: uuid('visit_id').references(() => visits.id),
     insuranceAmount: decimal('insurance_amount', { precision: 10, scale: 2 }).notNull().default('0'),
     patientAmount: decimal('patient_amount', { precision: 10, scale: 2 }).notNull(),
+    discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).notNull().default('0'),
     status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, paid, partial, cancelled
     notes: text('notes'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
