@@ -21,6 +21,13 @@ import {
   BarChart3,
   Heart,
   Settings,
+  Pill,
+  Package,
+  ShoppingBag,
+  History,
+  Tags,
+  Boxes,
+  Truck,
 } from "lucide-react"
 import {
   Sidebar,
@@ -71,6 +78,16 @@ const parametrageNav = [
   { title: "Parametrage", href: "/parametrage", icon: Settings },
 ]
 
+const pharmacyNav = [
+  { title: "Ventes", href: "/pharmacy/sales", icon: Pill },
+  { title: "Achats", href: "/pharmacy/purchases", icon: ShoppingBag },
+  { title: "Stock", href: "/pharmacy/stock", icon: Package },
+  { title: "Mouvements", href: "/pharmacy/movements", icon: History },
+  { title: "Catalogue", href: "/pharmacy/medicines", icon: Boxes },
+  { title: "Catégories", href: "/pharmacy/categories", icon: Tags },
+  { title: "Fournisseurs", href: "/pharmacy/suppliers", icon: Truck },
+]
+
 function NavGroup({ label, items }: { label: string; items: typeof mainNav }) {
   const pathname = usePathname()
 
@@ -118,6 +135,7 @@ export function AppSidebar() {
         <NavGroup label="Clinical" items={clinicalNav} />
         <NavGroup label="Insurance" items={insuranceNav} />
         <NavGroup label="Billing" items={billingNav} />
+        <NavGroup label="Pharmacy" items={pharmacyNav} />
         <NavGroup label="Finance" items={financeNav} />
         <NavGroup label="System" items={parametrageNav} />
       </SidebarContent>

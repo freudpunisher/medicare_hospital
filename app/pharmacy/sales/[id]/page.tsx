@@ -1,0 +1,186 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
+import { Printer, Plus, ArrowLeft } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+
+interface SaleDetail {
+    id: string
+    saleDate: string
+    customerName: string | null
+    totalAmount: string
+    subtotal: string
+    paymentMethod: string
+    items: Array<{
+        id: string
+        quantity: string
+        unitPrice: string
+        totalPrice: string
+        medicine: { name: string, genericName: string | null }
+        lot: { lotNumber: string }
+    }>
+}
+
+export default function SaleReceiptPage() {
+    const router = useRouter()
+    const params = useParams()
+    const [sale, setSale] = useState<SaleDetail | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        async function fetchSale() {
+            try {
+                const res = await fetch(`/api/pharmacy/sales/${params.id}`)
+                const data = await res.json()
+                if (res.ok) setSale(data.data)
+            } catch (err) {
+                console.error("Failed to fetch sale details")
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchSale()
+    }, [params.id])
+
+    if (loading) return <div className="p-6 text-center animate-pulse py-12 text-foreground">Chargement du reçu...</div>
+    if (!sale) return <div className="p-6 text-center text-destructive py-12">Reçu non trouvé</div>
+
+    return (
+        <div className="p-6 max-w-2xl mx-auto space-y-6 text-foreground">
+            <div className="flex items-center justify-between print:hidden">
+                <Button variant="ghost" onClick={() => router.push("/pharmacy/sales")} className="gap-2 hover:bg-muted">
+                    <ArrowLeft className="size-4" /> Retour à l'historique
+                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => window.print()} className="gap-2 border-border">
+                        <Printer className="size-4" /> Imprimer
+                    </Button>
+                    <Button onClick={() => router.push("/pharmacy/sales/new")} className="gap-2 bg-primary text-primary-foreground">
+                        <Plus className="size-4" /> Nouvelle Vente
+                    </Button>
+                </div>
+            </div>
+
+            <Card className="border border-border shadow-lg print:border-none print:shadow-none bg-card overflow-hidden rounded-2xl">
+                <CardContent className="p-8 space-y-6 shadow-sm">
+                    <div className="text-center space-y-2">
+                        <h1 className="text-2xl font-black uppercase tracking-tighter text-foreground">MEDICARE HOSPITAL</h1>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Service Pharmacie - Reçu Officiel</p>
+                        <div className="pt-4 flex justify-center items-center gap-2">
+                            <div className="size-2 rounded-full bg-emerald-500 animate-pulse print:hidden" />
+                            <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm tracking-widest">TRANSACTION RÉUSSIE</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="h-px flex-1 bg-muted" />
+                        <div className="size-1 rounded-full bg-muted-foreground/30" />
+                        <div className="h-px flex-1 bg-muted" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                        <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Client / Patient</p>
+                            <p className="font-bold text-foreground border-l-2 border-primary pl-2">{sale.customerName || "Anonyme"}</p>
+                        </div>
+                        <div className="space-y-1 text-right">
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Référence Reçu</p>
+                            <p className="font-mono text-xs font-bold text-foreground bg-muted px-2 py-0.5 rounded-md inline-block">
+                                #{sale.id.slice(0, 8).toUpperCase()}
+                            </p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Date de Vente</p>
+                            <p className="font-bold text-foreground/80">{format(new Date(sale.saleDate), "dd MMM yyyy 'à' HH:mm", { locale: fr })}</p>
+                        </div>
+                        <div className="space-y-1 text-right">
+                            <p className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Mode de Paiement</p>
+                            <p className="font-bold uppercase text-foreground/80">{sale.paymentMethod === 'cash' ? 'Espèces / Cash' : sale.paymentMethod}</p>
+                        </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-border">
+                        <table className="w-full text-sm border-collapse">
+                            <thead>
+                                <tr className="bg-muted/50 border-b border-border">
+                                    <th className="px-4 py-3 text-left font-black uppercase text-[10px] text-muted-foreground tracking-wider">Article / Lot</th>
+                                    <th className="px-4 py-3 text-center font-black uppercase text-[10px] text-muted-foreground tracking-wider">Quantité</th>
+                                    <th className="px-4 py-3 text-right font-black uppercase text-[10px] text-muted-foreground tracking-wider">Prix Unitaire</th>
+                                    <th className="px-4 py-3 text-right font-black uppercase text-[10px] text-muted-foreground tracking-wider">Sous-total</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {sale.items.map((item) => (
+                                    <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                                        <td className="px-4 py-4">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-bold text-foreground leading-tight">{item.medicine.name}</span>
+                                                <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest italic">{item.medicine.genericName || "Standard DCI"}</span>
+                                                <span className="text-[10px] text-muted-foreground font-mono font-medium pt-1 opacity-50">Lot: {item.lot.lotNumber}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <span className="inline-flex items-center justify-center size-7 bg-muted rounded-full font-bold text-xs text-foreground/80">
+                                                {parseFloat(item.quantity)}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 text-right text-muted-foreground font-medium">{parseFloat(item.unitPrice).toLocaleString()} FBu</td>
+                                        <td className="px-4 py-4 text-right font-bold text-foreground">{parseFloat(item.totalPrice).toLocaleString()} FBu</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                        <div className="flex justify-between items-center text-sm px-4">
+                            <span className="text-muted-foreground font-bold uppercase text-[10px] tracking-widest">Sous-total Brut</span>
+                            <span className="font-bold text-muted-foreground">{parseFloat(sale.subtotal).toLocaleString()} FBu</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-sidebar text-sidebar-foreground p-5 rounded-2xl shadow-inner">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-sidebar-foreground/50 uppercase tracking-[0.2em] mb-1">Total Net à Payer</span>
+                                <span className="text-xs text-sidebar-foreground/30 italic lowercase font-medium">Toutes taxes comprises</span>
+                            </div>
+                            <span className="text-3xl font-black tracking-tighter">{parseFloat(sale.totalAmount).toLocaleString()} <span className="text-sm font-normal opacity-50 ml-1">FBu</span></span>
+                        </div>
+                    </div>
+
+                    <div className="pt-10 text-center space-y-6">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-0.5 bg-foreground" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-foreground">Signature Pharmacie</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground max-w-[280px] mx-auto leading-relaxed italic font-medium">
+                            Ce document tient lieu de facture acquittée. Les produits pharmaceutiques ne sont ni repris ni échangés après livraison.
+                        </p>
+                        <div className="text-[8px] font-mono text-muted-foreground/30 select-none">
+                            {sale.id}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <style jsx global>{`
+        @media print {
+          .print\:hidden { display: none !important; }
+          body { background: white !important; color: black !important; padding: 0 !important; }
+          main { padding: 0 !important; }
+          .max-w-2xl { max-width: 100% !important; margin: 0 !important; }
+          .p-6 { padding: 0 !important; }
+          .border { border: none !important; }
+          .shadow-lg { box-shadow: none !important; }
+          .rounded-2xl { border-radius: 0 !important; }
+          @page { margin: 1cm; }
+          .bg-card { background: white !important; }
+          .text-foreground { color: black !important; }
+          .bg-sidebar { background: #f8fafc !important; color: black !important; border: 1px solid #e2e8f0 !important; }
+        }
+      `}</style>
+        </div>
+    )
+}

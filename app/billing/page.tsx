@@ -26,19 +26,30 @@ interface Act {
   isActive: boolean
 }
 
+interface PatientInsurance {
+  id: string
+  insuranceId: string
+  insuranceNumber: string | null
+  insuranceCardNumber: string | null
+  insuranceExpiryDate: string | null
+  coverageRate: string
+  isPrimary: boolean
+  insurance: {
+    id: string
+    name: string
+  }
+}
+
 interface Patient {
   id: string
   firstName: string
   lastName: string
   phone: string
   isInsured: boolean
-  insuranceId: string | null
-  insuranceNumber: string | null
-  insuranceExpiryDate: string | null
-  insuranceCardNumber: string | null
-  coverageRate: string
   gender: string
   dateOfBirth: string
+  coverageRate: string
+  insurances: PatientInsurance[]
 }
 
 interface InsuranceRule {
@@ -74,9 +85,29 @@ export default function BillingPage() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [acts, setActs] = useState<Act[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [insuranceRules, setInsuranceRules] = useState<InsuranceRule[]>([])
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [selectedInsuranceIds, setSelectedInsuranceIds] = useState<string[]>([])
+  const [insuranceRulesMap, setInsuranceRulesMap] = useState<Record<string, InsuranceRule[]>>({})
   const [items, setItems] = useState<InvoiceItem[]>([])
+
+  // Recalculate items when insurance selection or rules change
+  useEffect(() => {
+    if (items.length > 0 && selectedPatient) {
+      setItems(prevItems => prevItems.map(item => {
+        const act = acts.find(a => a.id === item.actId)
+        if (!act) return item
+        const { insurancePart, patientPart, rate, source } = calculateCoverage(act, item.quantity)
+        return {
+          ...item,
+          insurancePart,
+          patientPart,
+          coverageRate: rate,
+          coverageSource: source
+        }
+      }))
+    }
+  }, [selectedInsuranceIds, insuranceRulesMap])
+
   const [selectedServiceId, setSelectedServiceId] = useState<string>("all")
   const [selectedActId, setSelectedActId] = useState<string>("")
   const [showSearch, setShowSearch] = useState(false)
@@ -138,23 +169,31 @@ export default function BillingPage() {
     return () => clearTimeout(handler)
   }, [searchQuery])
 
-  // Fetch insurance rules when patient selected
+  // Fetch insurance rules when selected insurances change
   useEffect(() => {
-    async function fetchRules() {
-      if (selectedPatient?.isInsured && selectedPatient.insuranceId) {
+    async function fetchAllRules() {
+      if (selectedInsuranceIds.length > 0) {
         try {
-          const res = await fetch(`/api/insurances/rules?insuranceId=${selectedPatient.insuranceId}`)
-          const data = await res.json()
-          if (res.ok) setInsuranceRules(data.data || [])
+          const newMap: Record<string, InsuranceRule[]> = {}
+          await Promise.all(
+            selectedInsuranceIds.map(async (id) => {
+              const res = await fetch(`/api/insurances/rules?insuranceId=${id}`)
+              const data = await res.json()
+              if (res.ok) {
+                newMap[id] = data.data || []
+              }
+            })
+          )
+          setInsuranceRulesMap(newMap)
         } catch (err) {
-          console.error("Failed to fetch rules")
+          console.error("Failed to fetch insurance rules")
         }
       } else {
-        setInsuranceRules([])
+        setInsuranceRulesMap({})
       }
     }
-    fetchRules()
-  }, [selectedPatient])
+    fetchAllRules()
+  }, [selectedInsuranceIds])
 
   const filteredActs = useMemo(() => {
     if (selectedServiceId === "all") return acts.filter(a => a.isActive)
@@ -172,27 +211,55 @@ export default function BillingPage() {
     const unitPrice = parseFloat(act.basePrice)
     const total = unitPrice * qty
 
-    if (!selectedPatient?.isInsured || !selectedPatient.insuranceId) {
+    if (selectedInsuranceIds.length === 0) {
       return { insurancePart: 0, patientPart: total, rate: 0, source: 'none' }
     }
 
-    const rule = insuranceRules.find((r) => r.serviceId === act.serviceId)
-    const source = rule ? 'rule' : 'patient'
-    const rawRate = rule ? rule.coverageRate : selectedPatient.coverageRate
-    const rate = parseFloat(rawRate)
+    let bestRate = 0
+    let bestSource: 'rule' | 'patient' | 'none' = 'none'
+    let bestCovered = 0
 
-    let covered = total * (rate / 100)
+    // Iterate through all selected insurances to find the best coverage
+    selectedInsuranceIds.forEach(insId => {
+      const patientIns = selectedPatient!.insurances.find(i => i.insuranceId === insId)
+      if (!patientIns) return
 
-    if (rule && rule.plafond) {
-      const plafond = parseFloat(rule.plafond)
-      if (covered > plafond) covered = plafond
+      const rules = insuranceRulesMap[insId] || []
+      const rule = rules.find(r => r.serviceId === act.serviceId)
+
+      const currentSource = rule ? 'rule' : 'patient'
+      let rawRate = rule ? rule.coverageRate : patientIns.coverageRate
+
+      // Fallback to patient global rate if insurance rate is 0 and no rule
+      if (!rule && (parseFloat(rawRate) === 0 || !rawRate) && selectedPatient!.coverageRate) {
+        rawRate = selectedPatient!.coverageRate
+      }
+
+      const currentRate = parseFloat(rawRate)
+
+      let currentCovered = total * (currentRate / 100)
+
+      if (rule && rule.plafond) {
+        const plafond = parseFloat(rule.plafond)
+        if (currentCovered > plafond) currentCovered = plafond
+      }
+
+      if (currentCovered > bestCovered || (currentCovered === bestCovered && currentRate > bestRate)) {
+        bestCovered = currentCovered
+        bestRate = currentRate
+        bestSource = currentSource
+      }
+    })
+
+    if (bestSource === 'none' && selectedInsuranceIds.length > 0) {
+      bestSource = 'patient'
     }
 
     return {
-      insurancePart: Math.round(covered),
-      patientPart: total - Math.round(covered),
-      rate,
-      source
+      insurancePart: Math.round(bestCovered),
+      patientPart: total - Math.round(bestCovered),
+      rate: bestRate,
+      source: bestSource
     }
   }
 
@@ -332,6 +399,7 @@ export default function BillingPage() {
       const invoiceData = {
         ...resData.data,
         patient: selectedPatient,
+        selectedInsurances: selectedPatient.insurances.filter(i => selectedInsuranceIds.includes(i.insuranceId)),
         items: [...items],
         paymentMethod,
         paymentReference,
@@ -391,10 +459,15 @@ export default function BillingPage() {
                   <span>PATIENT:</span>
                   <span className="uppercase text-right">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</span>
                 </div>
-                {lastInvoice.patient.insuranceNumber && (
-                  <div className="flex justify-between">
-                    <span>MATRICULE:</span>
-                    <span>{lastInvoice.patient.insuranceNumber}</span>
+                {lastInvoice.selectedInsurances && lastInvoice.selectedInsurances.length > 0 && (
+                  <div className="flex-col mt-1">
+                    <span className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</span>
+                    {lastInvoice.selectedInsurances.map((si: any) => (
+                      <div key={si.id} className="flex justify-between pl-2 italic" style={{ fontSize: '9px' }}>
+                        <span>- {si.insurance.name}:</span>
+                        <span>{si.insuranceNumber}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -487,6 +560,9 @@ export default function BillingPage() {
                           setSearchQuery("")
                           setShowSearch(false)
                           setItems([])
+                          // Auto-select primary or all active insurances
+                          const IDs = patient.insurances?.map(i => i.insuranceId) || []
+                          setSelectedInsuranceIds(IDs)
                         }}
                       >
                         <div className="bg-primary/10 p-2 rounded-full">
@@ -554,30 +630,52 @@ export default function BillingPage() {
                 <Separator />
 
                 <div className="space-y-3">
-                  {selectedPatient.isInsured ? (
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Shield className="size-4 text-green-600" />
-                        <span className="text-sm font-bold text-green-600">Patient Assuré</span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-1.5 text-[11px]">
-                        <p className="text-muted-foreground">
-                          Matricule: <span className="font-bold text-foreground">{selectedPatient.insuranceNumber}</span>
-                        </p>
-                        {selectedPatient.insuranceCardNumber && (
-                          <p className="text-muted-foreground">
-                            Carte: <span className="font-medium text-foreground">{selectedPatient.insuranceCardNumber}</span>
-                          </p>
-                        )}
-                        {selectedPatient.insuranceExpiryDate && (
-                          <p className="text-muted-foreground">
-                            Expire le: <span className="font-medium text-foreground">{selectedPatient.insuranceExpiryDate}</span>
-                          </p>
-                        )}
-                        <p className="text-muted-foreground">
-                          Couverture Générale: <span className="font-bold text-primary">{selectedPatient.coverageRate}%</span>
-                        </p>
-                      </div>
+                  <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Insurances Sélectionnées</label>
+                  {selectedPatient.insurances && selectedPatient.insurances.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedPatient.insurances.map((ins) => {
+                        const isSelected = selectedInsuranceIds.includes(ins.insuranceId)
+                        const isExpired = ins.insuranceExpiryDate && new Date(ins.insuranceExpiryDate) < new Date()
+
+                        return (
+                          <div
+                            key={ins.id}
+                            className={`relative border rounded-lg p-2 transition-all cursor-pointer ${isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                              : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                              } ${isExpired ? 'opacity-70' : ''}`}
+                            onClick={() => {
+                              setSelectedInsuranceIds(prev =>
+                                prev.includes(ins.insuranceId)
+                                  ? prev.filter(id => id !== ins.insuranceId)
+                                  : [...prev, ins.insuranceId]
+                              )
+                            }}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                {isSelected ? (
+                                  <Shield className="size-4 text-primary" />
+                                ) : (
+                                  <ShieldOff className="size-4 text-muted-foreground" />
+                                )}
+                                <div>
+                                  <p className="text-xs font-bold leading-none">{ins.insurance.name}</p>
+                                  <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{ins.insuranceNumber}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <Badge variant={isSelected ? "default" : "outline"} className="text-[8px] h-4 px-1 leading-none uppercase">
+                                  {ins.coverageRate}%
+                                </Badge>
+                                {isExpired && (
+                                  <span className="text-[8px] text-destructive font-bold uppercase leading-none">Expiré</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   ) : (
                     <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-2">
@@ -791,10 +889,24 @@ export default function BillingPage() {
                       <span className="text-muted-foreground font-medium">Sous-total :</span>
                       <span className="font-bold">{totals.total.toLocaleString()} FBU</span>
                     </div>
-                    <div className="flex justify-between items-center text-xs text-primary">
-                      <span className="font-medium">Assurance :</span>
-                      <span className="font-bold">-{totals.insTotal.toLocaleString()} FBU</span>
-                    </div>
+                    {selectedInsuranceIds.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs text-primary pt-1">
+                          <span className="font-medium">Total Assurances :</span>
+                          <span className="font-bold">-{totals.insTotal.toLocaleString()} FBU</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedPatient.insurances
+                            .filter(i => selectedInsuranceIds.includes(i.insuranceId))
+                            .map(i => (
+                              <Badge key={i.id} variant="secondary" className="text-[8px] h-4 bg-primary/10 text-primary border-none">
+                                {i.insurance.name}
+                              </Badge>
+                            ))
+                          }
+                        </div>
+                      </div>
+                    )}
                     {discountAmount > 0 && (
                       <div className="flex justify-between items-center text-xs text-orange-600 font-bold italic">
                         <span>Réduction :</span>

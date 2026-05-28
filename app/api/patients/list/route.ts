@@ -28,6 +28,7 @@ export async function GET(req: Request) {
 
     const whereCondition = filters.length > 0 ? and(...filters) : undefined
 
+    // Count query
     const countQuery = whereCondition
       ? db.select({ count: count() }).from(patients).where(whereCondition)
       : db.select({ count: count() }).from(patients)
@@ -35,11 +36,20 @@ export async function GET(req: Request) {
     const countResult = await countQuery
     const total = countResult[0]?.count || 0
 
-    let query = db.select().from(patients)
-    if (whereCondition) query = query.where(whereCondition)
-    query = query.orderBy(desc(patients.createdAt)).limit(limit).offset(offset)
-
-    const data = await query
+    // Fetch patients with their insurances relation
+    const data = await db.query.patients.findMany({
+      where: whereCondition,
+      orderBy: desc(patients.createdAt),
+      limit,
+      offset,
+      with: {
+        insurances: {
+          with: {
+            insurance: true,
+          },
+        },
+      },
+    })
 
     return NextResponse.json({
       data,

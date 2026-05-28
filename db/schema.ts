@@ -755,6 +755,7 @@ export const medicines = pgTable(
       .references(() => medicineCategories.id),
     unit: varchar("unit", { length: 50 }).notNull(), // tablet, bottle
     barcode: varchar("barcode", { length: 100 }),
+    sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }).notNull().default('0'),
     isActive: boolean("is_active").default(true),
     createdAt: timestamp("created_at").defaultNow(),
   }
@@ -898,6 +899,50 @@ export const dispensationItems = pgTable(
   },
   (table) => ({
     lotIdx: index("dispensation_items_lot_idx").on(table.medicineLotId),
+  })
+)
+
+// ============================================================
+// PHARMACY SALES TABLES
+// ============================================================
+export const pharmacySales = pgTable(
+  "pharmacy_sales",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    saleDate: timestamp("sale_date").notNull().defaultNow(),
+    status: varchar("status", { length: 50 }).notNull().default("confirmed"),
+    paymentMethod: varchar("payment_method", { length: 50 }).notNull().default("cash"),
+    paymentStatus: varchar("payment_status", { length: 50 }).notNull().default("paid"),
+    customerName: varchar("customer_name", { length: 255 }), // nullable = anonymous
+    subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+    totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow(),
+  }
+)
+
+export const pharmacySaleItems = pgTable(
+  "pharmacy_sale_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    saleId: uuid("sale_id")
+      .notNull()
+      .references(() => pharmacySales.id, { onDelete: "cascade" }),
+    medicineId: uuid("medicine_id")
+      .notNull()
+      .references(() => medicines.id),
+    lotId: uuid("lot_id")
+      .notNull()
+      .references(() => medicineLots.id),
+    quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(),
+    unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+    totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    saleIdx: index("pharmacy_sale_items_sale_idx").on(table.saleId),
+    medicineIdx: index("pharmacy_sale_items_medicine_idx").on(table.medicineId),
+    lotIdx: index("pharmacy_sale_items_lot_idx").on(table.lotId),
   })
 )
 
@@ -1094,3 +1139,70 @@ export const insuranceServiceRulesRelations = relations(insuranceServiceRules, (
   }),
 }))
 
+export const pharmacySalesRelations = relations(pharmacySales, ({ many }) => ({
+  items: many(pharmacySaleItems),
+}))
+
+export const pharmacySaleItemsRelations = relations(pharmacySaleItems, ({ one }) => ({
+  sale: one(pharmacySales, {
+    fields: [pharmacySaleItems.saleId],
+    references: [pharmacySales.id],
+  }),
+  medicine: one(medicines, {
+    fields: [pharmacySaleItems.medicineId],
+    references: [medicines.id],
+  }),
+  lot: one(medicineLots, {
+    fields: [pharmacySaleItems.lotId],
+    references: [medicineLots.id],
+  }),
+}))
+
+export const medicinesRelations = relations(medicines, ({ one, many }) => ({
+  category: one(medicineCategories, {
+    fields: [medicines.categoryId],
+    references: [medicineCategories.id],
+  }),
+  lots: many(medicineLots),
+  sales: many(pharmacySaleItems),
+  movements: many(stockMovements),
+}))
+
+export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
+  medicine: one(medicines, {
+    fields: [stockMovements.medicineId],
+    references: [medicines.id],
+  }),
+}))
+
+export const suppliersRelations = relations(suppliers, ({ many }) => ({
+  purchaseOrders: many(purchaseOrders),
+}))
+
+export const purchaseOrdersRelations = relations(purchaseOrders, ({ one, many }) => ({
+  supplier: one(suppliers, {
+    fields: [purchaseOrders.supplierId],
+    references: [suppliers.id],
+  }),
+  items: many(purchaseOrderItems),
+}))
+
+export const purchaseOrderItemsRelations = relations(purchaseOrderItems, ({ one, many }) => ({
+  order: one(purchaseOrders, {
+    fields: [purchaseOrderItems.purchaseOrderId],
+    references: [purchaseOrders.id],
+  }),
+  medicine: one(medicines, {
+    fields: [purchaseOrderItems.medicineId],
+    references: [medicines.id],
+  }),
+  lots: many(medicineLots),
+}))
+
+export const medicineLotsRelations = relations(medicineLots, ({ one, many }) => ({
+  medicine: one(medicines, {
+    fields: [medicineLots.medicineId],
+    references: [medicines.id],
+  }),
+  saleItems: many(pharmacySaleItems),
+}))
