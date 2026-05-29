@@ -67,6 +67,8 @@ export default function InvoicesPage() {
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
+    const [printingInvoice, setPrintingInvoice] = useState<Invoice | null>(null)
+    const printRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         async function fetchInvoices() {
@@ -84,6 +86,14 @@ export default function InvoicesPage() {
         }
         fetchInvoices()
     }, [])
+
+    const handlePrintA4 = (invoice: Invoice) => {
+        setPrintingInvoice(invoice)
+        // Wait for state to reflect in DOM
+        setTimeout(() => {
+            window.print()
+        }, 100)
+    }
 
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv =>
@@ -245,8 +255,11 @@ export default function InvoicesPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="rounded-2xl w-48 shadow-2xl border-none">
                                                 <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground">Options</DropdownMenuLabel>
-                                                <DropdownMenuItem className="rounded-xl gap-2 font-bold focus:bg-primary/10 cursor-pointer">
-                                                    <Printer className="size-4" /> Imprimer
+                                                <DropdownMenuItem
+                                                    className="rounded-xl gap-2 font-bold focus:bg-primary/10 cursor-pointer"
+                                                    onClick={() => handlePrintA4(inv)}
+                                                >
+                                                    <Printer className="size-4" /> Imprimer A4
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem className="rounded-xl gap-2 font-bold focus:bg-primary/10 cursor-pointer">
                                                     <ChevronRight className="size-4" /> Voir Détails
@@ -285,6 +298,11 @@ export default function InvoicesPage() {
                         <p className="text-xl font-black text-amber-600">{invoices.reduce((sum, inv) => sum + Number(inv.insuranceAmount), 0).toLocaleString()} <span className="text-xs font-normal">FBU</span></p>
                     </div>
                 </div>
+            </div>
+
+            {/* Off-screen A4 Invoice container for print */}
+            <div className="hidden print:block fixed inset-0 bg-white z-[9999]">
+                <InvoiceA4 invoice={printingInvoice} ref={printRef} />
             </div>
         </div>
     )

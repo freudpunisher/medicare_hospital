@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import { useRef } from "react"
+import { BordereauA4 } from "@/components/insurances/bordereau-a4"
 
 interface Claim {
   id: string
@@ -71,6 +73,8 @@ export default function ClaimsPage() {
   const [claims, setClaims] = useState<Claim[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isPrinting, setIsPrinting] = useState(false)
+  const bordereauRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function fetchClaims() {
@@ -88,6 +92,14 @@ export default function ClaimsPage() {
     }
     fetchClaims()
   }, [])
+
+  const handlePrintGlobal = () => {
+    setIsPrinting(true)
+    setTimeout(() => {
+      window.print()
+      setIsPrinting(false)
+    }, 100)
+  }
 
   const filteredClaims = useMemo(() => {
     return claims.filter(claim =>
@@ -276,10 +288,18 @@ export default function ClaimsPage() {
       </Card>
 
       <div className="flex justify-end pt-4">
-        <Button className="rounded-2xl h-12 px-8 gap-2 font-black uppercase tracking-widest shadow-xl shadow-primary/20">
+        <Button
+          className="rounded-2xl h-12 px-8 gap-2 font-black uppercase tracking-widest shadow-xl shadow-primary/20"
+          onClick={handlePrintGlobal}
+        >
           <FileText className="size-4" />
           Générer Bordereau Global
         </Button>
+      </div>
+
+      {/* Off-screen Bordereau container for print */}
+      <div className="hidden print:block fixed inset-0 bg-white z-[9999]">
+        <BordereauA4 claims={filteredClaims} ref={bordereauRef} />
       </div>
     </div>
   )

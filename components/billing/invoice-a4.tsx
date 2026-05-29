@@ -23,13 +23,16 @@ export const InvoiceA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>(({ inv
         >
             {/* Header */}
             <div className="flex justify-between items-start border-b-2 border-slate-900 pb-8 mb-8">
-                <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none">MEDICARE HOSPITAL</h1>
-                    <p className="mt-2 text-sm font-bold uppercase text-slate-600">Service Médical de Haute Qualité</p>
-                    <div className="mt-4 text-xs space-y-1 text-slate-500 font-sans">
-                        <p>Bujumbura, Burundi</p>
-                        <p>Téléphone: +257 22 22 00 00</p>
-                        <p>Email: contact@medicare-hospital.bi</p>
+                <div className="flex items-start gap-4">
+                    <img src="/images/logo.png" alt="Logo" className="size-20 object-contain" />
+                    <div>
+                        <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900 leading-none">CLINIQUE MEDICO-DENTAIRE</h1>
+                        <p className="mt-2 text-sm font-bold uppercase text-slate-600">Service de Santé d'Excellence</p>
+                        <div className="mt-4 text-[10px] leading-relaxed text-slate-500 font-sans max-w-xs">
+                            <p>Africana House (en face de la permanence nationale du CNDD-FDD)</p>
+                            <p>Kigobe, Boulevard Mwambutsa, Bujumbura</p>
+                            <p>Contact: +257 22 22 00 00 | contact@medico-dentaire.bi</p>
+                        </div>
                     </div>
                 </div>
                 <div className="text-right">

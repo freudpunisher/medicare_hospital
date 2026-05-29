@@ -310,11 +310,13 @@ export default function BillingPage() {
             * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              font-size: 11px; 
+              font-size: 15px; 
+              font-weight: 700;
               background: #fff; 
-              width: 80mm; 
+              width: 100mm; 
               padding: 4mm;
               margin: 0 auto;
+              line-height: 1.2;
             }
             .flex { display: flex; }
             .flex-col { flex-direction: column; }
@@ -323,23 +325,23 @@ export default function BillingPage() {
             .w-full { width: 100%; }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
-            .text-red { color: #f00; }
+            .text-red { color: #000; font-weight: bold; }
             .font-bold { font-weight: bold; }
             .font-black { font-weight: 900; }
             .uppercase { text-transform: uppercase; }
             .italic { font-style: italic; }
-            .my-2 { margin-top: 8px; margin-bottom: 8px; }
-            .my-4 { margin-top: 16px; margin-bottom: 16px; }
-            .mb-2 { margin-bottom: 8px; }
-            .border-t { border-top: 1px solid #000; }
-            .border-b { border-bottom: 1px solid #000; }
-            .border-dashed { border-style: dashed; }
+            .my-2 { margin-top: 10px; margin-bottom: 10px; }
+            .my-4 { margin-top: 18px; margin-bottom: 18px; }
+            .mb-2 { margin-bottom: 10px; }
+            .border-t { border-top: 1.5px solid #000; }
+            .border-b { border-bottom: 1.5px solid #000; }
+            .border-dashed { border-style: dashed; border-top-width: 1.5px; }
             .table { display: table; width: 100%; }
             .table-row { display: table-row; }
-            .table-cell { display: table-cell; padding-top: 4px; padding-bottom: 4px; }
+            .table-cell { display: table-cell; padding-top: 6px; padding-bottom: 6px; }
             @media print {
-              body { width: 80mm; margin: 0; padding: 4mm; }
-              @page { size: 80mm auto; margin: 0; }
+              body { width: 100mm; margin: 0; padding: 4mm; }
+              @page { size: 100mm auto; margin: 0; }
             }
           </style>
         </head>
@@ -441,8 +443,11 @@ export default function BillingPage() {
           {lastInvoice && (
             <div className="flex-col items-center w-full">
               <div className="text-center">
-                <h2 className="font-bold uppercase" style={{ fontSize: '16px' }}>MEDICARE HOSPITAL</h2>
-                <p className="mb-2" style={{ fontSize: '10px' }}>Service Médical de Qualité</p>
+                {/* <img src="/images/logo.png" alt="Logo" className="w-4 h-4 mx-auto block" /> */}
+                <h2 className="font-black uppercase" style={{ fontSize: '18px' }}>CLINIQUE MEDICO-DENTAIRE  Le SOURIRE</h2>
+                {/* <p className="mb-2 font-bold" style={{ fontSize: '14px' }}>Service de Santé d'Excellence</p> */}
+                <p className="mb-2 font-bold align-start" style={{ fontSize: '14px' }}>NIF: 500253456</p>
+                {/* <p className="mb-2 font-bold" style={{ fontSize: '14px' }}>: 500253456</p> */}
               </div>
               <div className="w-full border-t border-dashed my-2" />
 
@@ -463,7 +468,7 @@ export default function BillingPage() {
                   <div className="flex-col mt-1">
                     <span className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</span>
                     {lastInvoice.selectedInsurances.map((si: any) => (
-                      <div key={si.id} className="flex justify-between pl-2 italic" style={{ fontSize: '9px' }}>
+                      <div key={si.id} className="flex justify-between pl-2 italic font-bold" style={{ fontSize: '14px' }}>
                         <span>- {si.insurance.name}:</span>
                         <span>{si.insuranceNumber}</span>
                       </div>
@@ -484,9 +489,9 @@ export default function BillingPage() {
                     <div className="table-cell py-1">
                       {item.actName}
                       <br />
-                      <span className="italic" style={{ fontSize: '9px' }}>{item.actCode}</span>
+                      <span className="italic font-bold" style={{ fontSize: '14px' }}>{item.actCode}</span>
                     </div>
-                    <div className="table-cell text-right">{item.patientPart.toLocaleString()}</div>
+                    <div className="table-cell text-right">{item.patientPart.toLocaleString()}FBU</div>
                   </div>
                 ))}
               </div>
@@ -502,7 +507,7 @@ export default function BillingPage() {
                   <span>PART ASSUREANCE:</span>
                   <span>-{lastInvoice.totals.insTotal.toLocaleString()} FBU</span>
                 </div>
-                <div className="flex justify-between font-black" style={{ fontSize: '14px' }}>
+                <div className="flex justify-between font-black" style={{ fontSize: '22px' }}>
                   <span>À PAYER:</span>
                   <span>{lastInvoice.totals.patTotal.toLocaleString()} FBU</span>
                 </div>
@@ -520,8 +525,8 @@ export default function BillingPage() {
               </div>
 
               <div className="w-full border-t border-dashed my-4" />
-              <p className="text-center italic" style={{ fontSize: '10px' }}>*** Merci pour votre confiance ***</p>
-              <p className="text-center mt-1" style={{ fontSize: '8px' }}>{lastInvoice.id}</p>
+              <p className="text-center italic font-black" style={{ fontSize: '16px' }}>*** Merci de votre confiance ***</p>
+              <p className="text-center mt-1 font-bold" style={{ fontSize: '12px' }}>{lastInvoice.id}</p>
             </div>
           )}
         </div>
