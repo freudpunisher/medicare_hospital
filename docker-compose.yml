@@ -1,0 +1,47 @@
+services:
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: medicare_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medicare_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+      POSTGRES_DB: ${POSTGRES_DB:-medicare}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-medicare_user} -d ${POSTGRES_DB:-medicare}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Next.js Application ────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medicare_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-medicare_user}:${POSTGRES_PASSWORD:-securepassword}@db:5432/${POSTGRES_DB:-medicare}
+      NODE_ENV: production
+      # Seed admin on first boot (set to "false" after first run)
+      SEED_ADMIN: ${SEED_ADMIN:-true}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@1234}
+      ADMIN_FULLNAME: ${ADMIN_FULLNAME:-Administrateur}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Persist uploaded assets
+      - app_uploads:/app/public/uploads
+
+volumes:
+  postgres_data:
+  app_uploads:

@@ -42,6 +42,12 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { canAccessGroup } from "@/config/nav-permissions"
+import { useCurrentUser } from "@/hooks/use-current-user"
+
+// ─── Nav Definitions ─────────────────────────────────────────────────────────
+// To add a new section: 1) add items here, 2) add to NAV_GROUPS below,
+// 3) add permissions in config/nav-permissions.ts
 
 const mainNav = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -90,6 +96,22 @@ const pharmacyNav = [
   { title: "Fournisseurs", href: "/pharmacy/suppliers", icon: Truck },
 ]
 
+/**
+ * NAV_GROUPS ties each group label to its items.
+ * The label must match the key in NAV_PERMISSIONS in config/nav-permissions.ts
+ */
+const NAV_GROUPS = [
+  { label: "Overview", items: mainNav },
+  { label: "Clinical", items: clinicalNav },
+  { label: "Insurance", items: insuranceNav },
+  { label: "Billing", items: billingNav },
+  { label: "Pharmacy", items: pharmacyNav },
+  { label: "Finance", items: financeNav },
+  { label: "System", items: parametrageNav },
+]
+
+// ─── Components ──────────────────────────────────────────────────────────────
+
 function NavGroup({ label, items }: { label: string; items: typeof mainNav }) {
   const pathname = usePathname()
 
@@ -119,6 +141,9 @@ function NavGroup({ label, items }: { label: string; items: typeof mainNav }) {
 }
 
 export function AppSidebar() {
+  const { user, loading } = useCurrentUser()
+  const role = user?.role ?? "user"
+
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader className="px-3 py-4">
@@ -132,20 +157,28 @@ export function AppSidebar() {
           </div>
         </Link>
       </SidebarHeader>
+
       <SidebarContent>
-        <NavGroup label="Overview" items={mainNav} />
-        <NavGroup label="Clinical" items={clinicalNav} />
-        <NavGroup label="Insurance" items={insuranceNav} />
-        <NavGroup label="Billing" items={billingNav} />
-        <NavGroup label="Pharmacy" items={pharmacyNav} />
-        <NavGroup label="Finance" items={financeNav} />
-        <NavGroup label="System" items={parametrageNav} />
+        {!loading &&
+          NAV_GROUPS.filter(({ label }) => canAccessGroup(label, role)).map(
+            ({ label, items }) => (
+              <NavGroup key={label} label={label} items={items} />
+            )
+          )}
       </SidebarContent>
+
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 space-y-0.5">
+          {user && (
+            <p className="text-[10px] text-sidebar-foreground/60 font-medium uppercase tracking-widest">
+              {user.fullName ?? user.username}
+              <span className="ml-1 opacity-50">· {user.role}</span>
+            </p>
+          )}
           <p className="text-[10px] text-sidebar-foreground/40">MediCore HMS v1.0</p>
         </div>
       </SidebarFooter>
+
       <SidebarRail />
     </Sidebar>
   )
