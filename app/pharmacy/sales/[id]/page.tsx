@@ -196,22 +196,12 @@ export default function SaleReceiptPage() {
 
             <style jsx global>{`
         @media print {
-          .print\:hidden { display: none !important; }
-          body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
-          main { padding: 0 !important; }
           .max-w-2xl { max-width: ${isThermal ? '80mm' : '100%'} !important; margin: 0 auto !important; }
-          .p-6 { padding: 0 !important; }
-          .border { border-style: solid !important; }
-          .shadow-lg, .shadow-md, .shadow-sm { box-shadow: none !important; }
-          .rounded-2xl, .rounded-xl { border-radius: 0 !important; }
           @page { 
-            margin: ${isThermal ? '0' : '1cm'}; 
+            margin: 0; 
             size: ${isThermal ? '80mm auto' : 'auto'};
           }
-          .bg-card, .bg-muted, .bg-sidebar { background: white !important; }
-          .text-foreground, .text-muted-foreground { color: black !important; }
-          
-          /* Show/Hide Based on layout */
+          /* Specific overrides for thermal font consistency */
           .thermal-only { display: ${isThermal ? 'block' : 'none'} !important; }
           .standard-only { display: ${isThermal ? 'none' : 'block'} !important; }
         }

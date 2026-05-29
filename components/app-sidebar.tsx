@@ -57,12 +57,14 @@ const clinicalNav = [
 ]
 
 const insuranceNav = [
-  { title: "Insurances", href: "/insurances", icon: Shield },
-  { title: "Insurance Rules", href: "/insurance-rules", icon: ScrollText },
+  { title: "Assurances", href: "/insurances", icon: Shield },
+  { title: "Bordereaux", href: "/insurances/claims", icon: ScrollText },
+  { title: "Règlements", href: "/insurances/payments", icon: History },
 ]
 
 const billingNav = [
-  { title: "Billing", href: "/billing", icon: Receipt },
+  { title: "Facturation", href: "/billing", icon: CreditCard },
+  { title: "Factures", href: "/billing/invoices", icon: Receipt },
 ]
 
 const financeNav = [

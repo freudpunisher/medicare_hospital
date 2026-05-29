@@ -135,3 +135,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  header, 
+  aside, 
+  nav, 
+  [role="navigation"], 
+  [data-sidebar], 
+  [data-sidebar-rail],
+  button[data-sidebar-trigger],
+  .print-hidden {
+    display: none !important;
+  }
+  
+  body, main {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  
+  @page {
+    margin: 0;
+  }
+}
