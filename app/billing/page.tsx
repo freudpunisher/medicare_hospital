@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag } from "lucide-react"
+import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag, CreditCard, History as HistoryIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -873,7 +873,7 @@ export default function BillingPage() {
                       className={`h-16 flex-col gap-1 ${paymentMethod === 'loan' ? 'bg-orange-600 border-orange-600 text-white' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}
                       onClick={() => setPaymentMethod('loan')}
                     >
-                      <History className="size-5" />
+                      <HistoryIcon className="size-5" />
                       <span className="text-[10px] font-bold uppercase leading-none">DETTE / PRÊT</span>
                     </Button>
                   </div>
@@ -972,7 +972,7 @@ export default function BillingPage() {
                   ) : (
                     <>
                       {paymentMethod === 'loan' ? (
-                        <><History className="mr-2 h-6 w-6" /> ENREGISTRER COMME DETTE</>
+                        <><HistoryIcon className="mr-2 h-6 w-6" /> ENREGISTRER COMME DETTE</>
                       ) : (
                         <><Check className="mr-2 h-6 w-6 text-primary" /> ENREGISTRER & IMPRIMER</>
                       )}
