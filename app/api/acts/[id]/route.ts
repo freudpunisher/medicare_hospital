@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { acts } from '@/db/schema'
+import { medicalActs } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 export async function PATCH(
@@ -17,9 +17,9 @@ export async function PATCH(
         }
 
         const result = await db
-            .update(acts)
+            .update(medicalActs)
             .set({ isActive })
-            .where(eq(acts.id, id))
+            .where(eq(medicalActs.id, id))
             .returning()
 
         if (result.length === 0) {

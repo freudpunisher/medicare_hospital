@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/page-header"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
 interface Insurance {
@@ -42,7 +44,7 @@ interface Quartier {
   zoneId: string
 }
 
-export default function NewPatientPage() {
+function NewPatientContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect")
@@ -489,4 +491,15 @@ export default function NewPatientPage() {
   )
 }
 
-import { Badge } from "@/components/ui/badge"
+export default function NewPatientPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    }>
+      <NewPatientContent />
+    </Suspense>
+  )
+}
