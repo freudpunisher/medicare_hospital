@@ -41,7 +41,7 @@ export async function POST(req: Request) {
                     discountAmount: (discountAmount || 0).toString(),
                     visitId,
                     notes,
-                    status: paymentMethod ? 'paid' : 'pending',
+                    status: paymentMethod === 'loan' ? 'pending' : (paymentMethod ? 'paid' : 'pending'),
                 })
                 .returning()
 

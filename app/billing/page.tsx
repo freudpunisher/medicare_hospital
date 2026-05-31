@@ -117,7 +117,7 @@ export default function BillingPage() {
   const [loadingServices, setLoadingServices] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "card">("cash")
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "card" | "loan">("cash")
   const [paymentReference, setPaymentReference] = useState("")
   const [discountAmount, setDiscountAmount] = useState(0)
   const [lastInvoice, setLastInvoice] = useState<any>(null)
@@ -515,7 +515,11 @@ export default function BillingPage() {
                 <div className="w-full border-t my-1" />
                 <div className="flex justify-between">
                   <span>MODE:</span>
-                  <span className="uppercase">{lastInvoice.paymentMethod.replace('_', ' ')}</span>
+                  <span className="uppercase">
+                    {lastInvoice.paymentMethod === 'cash' ? 'CASH' :
+                      lastInvoice.paymentMethod === 'mobile_money' ? 'MOB MONEY' :
+                        lastInvoice.paymentMethod === 'card' ? 'CARTE' : 'DETTE'}
+                  </span>
                 </div>
                 {lastInvoice.paymentReference && (
                   <div className="flex justify-between">
@@ -856,6 +860,22 @@ export default function BillingPage() {
                       <Smartphone className="size-5" />
                       <span className="text-[10px] font-bold uppercase leading-none">MOB MONEY</span>
                     </Button>
+                    <Button
+                      variant={paymentMethod === 'card' ? 'default' : 'outline'}
+                      className={`h-16 flex-col gap-1 ${paymentMethod === 'card' ? 'bg-primary border-primary' : ''}`}
+                      onClick={() => setPaymentMethod('card')}
+                    >
+                      <CreditCard className="size-5" />
+                      <span className="text-[10px] font-bold">CARTE</span>
+                    </Button>
+                    <Button
+                      variant={paymentMethod === 'loan' ? 'default' : 'outline'}
+                      className={`h-16 flex-col gap-1 ${paymentMethod === 'loan' ? 'bg-orange-600 border-orange-600 text-white' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}
+                      onClick={() => setPaymentMethod('loan')}
+                    >
+                      <History className="size-5" />
+                      <span className="text-[10px] font-bold uppercase leading-none">DETTE / PRÊT</span>
+                    </Button>
                   </div>
 
                   {paymentMethod === 'mobile_money' && (
@@ -931,7 +951,7 @@ export default function BillingPage() {
                     <div className="flex justify-between items-baseline pt-1">
                       <span className="text-[10px] font-black uppercase text-slate-500">Net Patient :</span>
                       <div className="text-right">
-                        <p className="text-2xl font-black text-primary animate-in zoom-in duration-300" key={discountAmount}>
+                        <p className={`text-2xl font-black ${paymentMethod === 'loan' ? 'text-orange-600' : 'text-primary'} animate-in zoom-in duration-300`} key={discountAmount}>
                           {(totals.patTotal - discountAmount).toLocaleString()}
                         </p>
                         <p className="text-[8px] font-bold text-muted-foreground">FRANC BURUNDAIS</p>
@@ -941,7 +961,8 @@ export default function BillingPage() {
                 </Card>
 
                 <Button
-                  className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-black text-base shadow-2xl relative overflow-hidden group"
+                  className={`w-full h-14 font-black text-base shadow-2xl relative overflow-hidden group ${paymentMethod === 'loan' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-slate-900 hover:bg-slate-800'
+                    } text-white`}
                   disabled={items.length === 0 || isSubmitting || (paymentMethod === 'mobile_money' && !paymentReference)}
                   onClick={handleValidate}
                 >
@@ -949,7 +970,13 @@ export default function BillingPage() {
                   {isSubmitting ? (
                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Traitement...</>
                   ) : (
-                    <><Check className="mr-2 h-6 w-6 text-primary" /> ENREGISTRER & IMPRIMER</>
+                    <>
+                      {paymentMethod === 'loan' ? (
+                        <><History className="mr-2 h-6 w-6" /> ENREGISTRER COMME DETTE</>
+                      ) : (
+                        <><Check className="mr-2 h-6 w-6 text-primary" /> ENREGISTRER & IMPRIMER</>
+                      )}
+                    </>
                   )}
                 </Button>
               </div>
@@ -966,7 +993,8 @@ export default function BillingPage() {
             Utilisez la barre de recherche ci-dessus pour trouver un patient et commencer la facturation.
           </p>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   )
 }
