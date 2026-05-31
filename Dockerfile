@@ -1,18 +1,19 @@
-# ─── Stage 1: Install Dependencies ───────────────────────────────────────────
+# ─── Stage 1: Install ALL Dependencies ────────────────────────────────────────
+# We install all deps (including devDependencies like tsx, drizzle-kit)
+# because the build step and the migration scripts need them.
 FROM node:20-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# ─── Stage 2: Build ──────────────────────────────────────────────────────────
+# ─── Stage 2: Build the Next.js App ──────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -23,23 +24,26 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create a non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Copy only the necessary production files
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# ── Next.js Standalone Output ──────────────────────────────────────────────
+# 'output: standalone' in next.config.mjs generates a self-contained server.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy DB-related files needed for migrations + seeding
-COPY --from=builder /app/db ./db
-COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
+# ── Migration & Seed Dependencies ─────────────────────────────────────────
+# The entrypoint runs 'drizzle-kit migrate' and 'tsx db/seed.admin.ts'
+# so we need: node_modules, db/, drizzle.config.ts, tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/db ./db
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
-# Copy entrypoint script
+# ── Entrypoint ─────────────────────────────────────────────────────────────
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
