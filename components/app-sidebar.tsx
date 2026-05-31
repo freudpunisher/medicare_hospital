@@ -71,6 +71,7 @@ const insuranceNav = [
 const billingNav = [
   { title: "Facturation", href: "/billing", icon: CreditCard },
   { title: "Factures", href: "/billing/invoices", icon: Receipt },
+  { title: "Rapports", href: "/billing/reports", icon: BarChart3 },
 ]
 
 const financeNav = [
@@ -94,6 +95,7 @@ const pharmacyNav = [
   { title: "Catalogue", href: "/pharmacy/medicines", icon: Boxes },
   { title: "Catégories", href: "/pharmacy/categories", icon: Tags },
   { title: "Fournisseurs", href: "/pharmacy/suppliers", icon: Truck },
+  { title: "Rapports", href: "/pharmacy/reports", icon: BarChart3 },
 ]
 
 /**

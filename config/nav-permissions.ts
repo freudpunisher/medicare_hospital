@@ -38,15 +38,15 @@ export const NAV_PERMISSIONS: NavPermission[] = [
     },
     {
         group: "Billing",
-        roles: ["admin", "cashier"],
+        roles: ["admin", "cashier", "user"],
     },
     {
         group: "Pharmacy",
-        roles: ["admin", "pharmacist", "cashier"],
+        roles: ["admin", "pharmacist", "cashier", "user"],
     },
     {
         group: "Finance",
-        roles: ["admin"],
+        roles: ["admin", "cashier"],
     },
     {
         group: "System",

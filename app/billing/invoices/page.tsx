@@ -17,7 +17,10 @@ import {
     MoreVertical,
     CheckCircle2,
     Clock,
-    AlertCircle
+    AlertCircle,
+    Eye,
+    ListFilter,
+    Loader2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,10 +44,19 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { useRef } from "react"
 import { InvoiceA4 } from "@/components/billing/invoice-a4"
+import { toast } from "sonner"
 
 interface Invoice {
     id: string
@@ -68,6 +80,9 @@ export default function InvoicesPage() {
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [printingInvoice, setPrintingInvoice] = useState<Invoice | null>(null)
+    const [viewingInvoice, setViewingInvoice] = useState<any>(null)
+    const [detailsLoading, setDetailsLoading] = useState(false)
+    const [showDetails, setShowDetails] = useState(false)
     const printRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -93,6 +108,26 @@ export default function InvoicesPage() {
         setTimeout(() => {
             window.print()
         }, 100)
+    }
+
+    const handleViewDetails = async (id: string) => {
+        setDetailsLoading(true)
+        setShowDetails(true)
+        try {
+            const res = await fetch(`/api/billing/invoices/${id}`)
+            const data = await res.json()
+            if (data.success) {
+                setViewingInvoice(data.data)
+            } else {
+                toast.error("Échec du chargement des détails")
+                setShowDetails(false)
+            }
+        } catch (err) {
+            toast.error("Erreur de connexion")
+            setShowDetails(false)
+        } finally {
+            setDetailsLoading(false)
+        }
     }
 
     const filteredInvoices = useMemo(() => {
@@ -134,10 +169,33 @@ export default function InvoicesPage() {
 
     return (
         <div className="p-6 space-y-6">
+
+
             <PageHeader
                 title="Journal des Factures"
                 description="Consultez et gérez l'historique complet des facturations"
             />
+            <div className="bg-primary/5 rounded-[2rem] p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary rotate-3">
+                        <Receipt className="size-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-black text-primary uppercase text-sm tracking-widest leading-none">Aperçu Global</h3>
+                        <p className="text-[11px] text-muted-foreground mt-1">Totalisation des flux financiers facturés</p>
+                    </div>
+                </div>
+                <div className="flex gap-10 pr-10">
+                    <div className="text-right">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Encaissé Patients</p>
+                        <p className="text-xl font-black text-foreground">{invoices.reduce((sum, inv) => sum + Number(inv.patientAmount), 0).toLocaleString()} <span className="text-xs font-normal">FBU</span></p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Dû par Mutuelles</p>
+                        <p className="text-xl font-black text-amber-600">{invoices.reduce((sum, inv) => sum + Number(inv.insuranceAmount), 0).toLocaleString()} <span className="text-xs font-normal">FBU</span></p>
+                    </div>
+                </div>
+            </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative flex-1 group">
@@ -261,13 +319,16 @@ export default function InvoicesPage() {
                                                 >
                                                     <Printer className="size-4" /> Imprimer A4
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem className="rounded-xl gap-2 font-bold focus:bg-primary/10 cursor-pointer">
-                                                    <ChevronRight className="size-4" /> Voir Détails
+                                                <DropdownMenuItem
+                                                    className="rounded-xl gap-2 font-bold focus:bg-primary/10 cursor-pointer"
+                                                    onClick={() => handleViewDetails(inv.id)}
+                                                >
+                                                    <Eye className="size-4" /> Voir Détails
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="rounded-xl gap-2 font-bold text-destructive focus:bg-destructive/10 cursor-pointer">
+                                                {/* <DropdownMenuItem className="rounded-xl gap-2 font-bold text-destructive focus:bg-destructive/10 cursor-pointer">
                                                     Annuler
-                                                </DropdownMenuItem>
+                                                </DropdownMenuItem> */}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -278,32 +339,96 @@ export default function InvoicesPage() {
                 </Table>
             </Card>
 
-            <div className="bg-primary/5 rounded-[2rem] p-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary rotate-3">
-                        <Receipt className="size-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-black text-primary uppercase text-sm tracking-widest leading-none">Aperçu Global</h3>
-                        <p className="text-[11px] text-muted-foreground mt-1">Totalisation des flux financiers facturés</p>
-                    </div>
-                </div>
-                <div className="flex gap-10 pr-10">
-                    <div className="text-right">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Encaissé Patients</p>
-                        <p className="text-xl font-black text-foreground">{invoices.reduce((sum, inv) => sum + Number(inv.patientAmount), 0).toLocaleString()} <span className="text-xs font-normal">FBU</span></p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Dû par Mutuelles</p>
-                        <p className="text-xl font-black text-amber-600">{invoices.reduce((sum, inv) => sum + Number(inv.insuranceAmount), 0).toLocaleString()} <span className="text-xs font-normal">FBU</span></p>
-                    </div>
-                </div>
-            </div>
 
             {/* Off-screen A4 Invoice container for print */}
             <div className="hidden print:block fixed inset-0 bg-white z-[9999]">
                 <InvoiceA4 invoice={printingInvoice} ref={printRef} />
             </div>
+
+            {/* Invoice Details Dialog */}
+            <Dialog open={showDetails} onOpenChange={setShowDetails}>
+                <DialogContent className="max-w-2xl rounded-[2rem]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-black">
+                            <Receipt className="size-5 text-primary" />
+                            Détails de la Facture {viewingInvoice?.invoiceNumber}
+                        </DialogTitle>
+                        <DialogDescription>Détail des prestations et breakdown financier</DialogDescription>
+                    </DialogHeader>
+
+                    {detailsLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-3">
+                            <Loader2 className="size-8 animate-spin text-primary" />
+                            <p className="text-sm text-muted-foreground animate-pulse font-bold uppercase tracking-widest text-[10px]">Chargement des détails...</p>
+                        </div>
+                    ) : viewingInvoice && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-muted/30 p-4 rounded-2xl border">
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Patient</p>
+                                    <p className="font-bold">{viewingInvoice.patient.firstName} {viewingInvoice.patient.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">{viewingInvoice.patient.phone || 'Pas de téléphone'}</p>
+                                </div>
+                                <div className="bg-muted/30 p-4 rounded-2xl border">
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-2">Transaction</p>
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-muted-foreground">Date:</span>
+                                        <span className="font-bold">{format(new Date(viewingInvoice.createdAt), 'dd/MM/yyyy HH:mm')}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs mt-1">
+                                        <span className="text-muted-foreground">Statut:</span>
+                                        <span className="font-bold uppercase text-primary">{viewingInvoice.status}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-muted-foreground mb-3 px-1">Prestations médicales</p>
+                                <div className="rounded-2xl border overflow-hidden">
+                                    <Table>
+                                        <TableHeader className="bg-muted/50">
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className="text-[10px] font-black uppercase">Désignation</TableHead>
+                                                <TableHead className="text-[10px] font-black uppercase text-center">Qté</TableHead>
+                                                <TableHead className="text-[10px] font-black uppercase text-right">Prix Unit.</TableHead>
+                                                <TableHead className="text-[10px] font-black uppercase text-right">Total</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {viewingInvoice.items.map((item: any) => (
+                                                <TableRow key={item.id} className="text-xs">
+                                                    <TableCell className="font-medium">{item.medicalAct.name}</TableCell>
+                                                    <TableCell className="text-center font-bold">{item.quantity}</TableCell>
+                                                    <TableCell className="text-right">{Number(item.unitPrice).toLocaleString()} FBU</TableCell>
+                                                    <TableCell className="text-right font-black">{Number(item.totalPrice).toLocaleString()} FBU</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            <div className="flex flex-col gap-2 bg-primary/5 p-4 rounded-2xl">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="font-bold text-muted-foreground uppercase text-[10px]">TOTAL BRUT</span>
+                                    <span className="font-black">{Number(viewingInvoice.totalAmount).toLocaleString()} FBU</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm text-amber-600">
+                                    <span className="font-bold uppercase text-[10px]">PART ASSURANCE</span>
+                                    <span className="font-black">-{Number(viewingInvoice.insuranceAmount).toLocaleString()} FBU</span>
+                                </div>
+                                <Separator className="bg-primary/10" />
+                                <div className="flex justify-between items-center text-lg">
+                                    <span className="font-black uppercase text-xs">À PAYER PATIENT</span>
+                                    <span className="font-black text-primary">{Number(viewingInvoice.patientAmount).toLocaleString()} FBU</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

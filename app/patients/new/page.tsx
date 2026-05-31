@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -44,6 +44,8 @@ interface Quartier {
 
 export default function NewPatientPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect")
   const [loading, setLoading] = useState(false)
   const [insurancesList, setInsurancesList] = useState<Insurance[]>([])
   const [provinces, setProvinces] = useState<Province[]>([])
@@ -214,7 +216,7 @@ export default function NewPatientPage() {
         return
       }
       toast.success("Patient créé avec succès")
-      router.push("/patients")
+      router.push(redirect || "/patients")
     } catch (err) {
       toast.error("Échec de création du patient")
     } finally {
@@ -228,7 +230,7 @@ export default function NewPatientPage() {
         <Button variant="outline" asChild>
           <Link href="/patients">
             <ArrowLeft className="size-4 mr-2" />
-            Retour aux patients
+            {redirect ? "Retour à la facturation" : "Retour aux patients"}
           </Link>
         </Button>
       </PageHeader>
@@ -473,7 +475,7 @@ export default function NewPatientPage() {
             )}
 
             <div className="flex items-center justify-end gap-2 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={() => router.push("/patients")} disabled={loading}>
+              <Button type="button" variant="outline" onClick={() => router.push(redirect || "/patients")} disabled={loading}>
                 Annuler
               </Button>
               <Button type="submit" disabled={loading}>

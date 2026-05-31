@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
-import { Search, Plus, Trash2, User, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag } from "lucide-react"
+import Link from "next/link"
+import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/page-header"
 import { toast } from "sonner"
+import { useState, useMemo, useEffect, useRef } from "react"
 
 interface Act {
   id: string
@@ -535,64 +536,72 @@ export default function BillingPage() {
       {/* Patient Search */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un patient par nom ou téléphone..."
-              className="pl-10 h-12 text-base border-primary/20 focus-visible:ring-primary"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setShowSearch(true)
-              }}
-              onFocus={() => setShowSearch(true)}
-            />
-            {showSearch && (searchQuery || loadingPatients) && (
-              <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border bg-card shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                {loadingPatients ? (
-                  <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" />
-                    Recherche en cours...
-                  </div>
-                ) : patients.length > 0 ? (
-                  <div className="max-h-80 overflow-y-auto p-1">
-                    {patients.map((patient) => (
-                      <button
-                        key={patient.id}
-                        className="flex w-full items-center gap-3 px-3 py-3 rounded-lg hover:bg-primary/10 transition-colors text-left"
-                        onMouseDown={() => {
-                          setSelectedPatient(patient)
-                          setSearchQuery("")
-                          setShowSearch(false)
-                          setItems([])
-                          // Auto-select primary or all active insurances
-                          const IDs = patient.insurances?.map(i => i.insuranceId) || []
-                          setSelectedInsuranceIds(IDs)
-                        }}
-                      >
-                        <div className="bg-primary/10 p-2 rounded-full">
-                          <User className="size-4 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-foreground">
-                            {patient.firstName} {patient.lastName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{patient.phone}</p>
-                        </div>
-                        {patient.isInsured && (
-                          <Badge variant="outline" className="ml-auto border-green-500/30 bg-green-500/5 text-green-600 text-[10px] h-5">
-                            <Shield className="size-3 mr-1" />
-                            Assuré
-                          </Badge>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="p-4 text-sm text-muted-foreground text-center italic">Aucun patient trouvé</p>
-                )}
-              </div>
-            )}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un patient par nom ou téléphone..."
+                className="pl-10 h-12 text-base border-primary/20 focus-visible:ring-primary"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setShowSearch(true)
+                }}
+                onFocus={() => setShowSearch(true)}
+              />
+              {showSearch && (searchQuery || loadingPatients) && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border bg-card shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                  {loadingPatients ? (
+                    <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      Recherche en cours...
+                    </div>
+                  ) : patients.length > 0 ? (
+                    <div className="max-h-80 overflow-y-auto p-1">
+                      {patients.map((patient) => (
+                        <button
+                          key={patient.id}
+                          className="flex w-full items-center gap-3 px-3 py-3 rounded-lg hover:bg-primary/10 transition-colors text-left"
+                          onMouseDown={() => {
+                            setSelectedPatient(patient)
+                            setSearchQuery("")
+                            setShowSearch(false)
+                            setItems([])
+                            // Auto-select primary or all active insurances
+                            const IDs = patient.insurances?.map(i => i.insuranceId) || []
+                            setSelectedInsuranceIds(IDs)
+                          }}
+                        >
+                          <div className="bg-primary/10 p-2 rounded-full">
+                            <User className="size-4 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-foreground">
+                              {patient.firstName} {patient.lastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{patient.phone}</p>
+                          </div>
+                          {patient.isInsured && (
+                            <Badge variant="outline" className="ml-auto border-green-500/30 bg-green-500/5 text-green-600 text-[10px] h-5">
+                              <Shield className="size-3 mr-1" />
+                              Assuré
+                            </Badge>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-4 text-sm text-muted-foreground text-center italic">Aucun patient trouvé</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <Button variant="outline" className="h-12 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 px-6 shrink-0" asChild>
+              <Link href="/patients/new?redirect=/billing">
+                <UserPlus className="size-4 mr-2" />
+                Nouveau Patient
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
