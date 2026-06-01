@@ -17,6 +17,7 @@ import {
 import { PageHeader } from "@/components/page-header"
 import { toast } from "sonner"
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 interface Act {
   id: string
@@ -82,6 +83,7 @@ interface InvoiceItem {
 }
 
 export default function BillingPage() {
+  const { user } = useCurrentUser()
   const [searchQuery, setSearchQuery] = useState("")
   const [patients, setPatients] = useState<Patient[]>([])
   const [acts, setActs] = useState<Act[]>([])
@@ -443,12 +445,9 @@ export default function BillingPage() {
         <div ref={receiptRef}>
           {lastInvoice && (
             <div className="flex-col items-center w-full">
-              <div className="text-center">
-                {/* <img src="/images/logo.png" alt="Logo" className="w-4 h-4 mx-auto block" /> */}
-                <h2 className="font-black uppercase" style={{ fontSize: '18px' }}>CLINIQUE MEDICO-DENTAIRE  Le SOURIRE</h2>
-                {/* <p className="mb-2 font-bold" style={{ fontSize: '14px' }}>Service de Santé d'Excellence</p> */}
-                <p className="mb-2 font-bold align-start" style={{ fontSize: '14px' }}>NIF: 500253456</p>
-                {/* <p className="mb-2 font-bold" style={{ fontSize: '14px' }}>: 500253456</p> */}
+              <div className="text-center mb-2">
+                <h2 className="font-bold uppercase" style={{ fontSize: '15px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                <p className="font-bold text-[11px] mt-1">NIF: 500253456</p>
               </div>
               <div className="w-full border-t border-dashed my-2" />
 
@@ -460,6 +459,10 @@ export default function BillingPage() {
                 <div className="flex justify-between">
                   <span>FACT NO:</span>
                   <span>{lastInvoice.invoiceNumber}</span>
+                </div>
+                <div className="flex justify-between italic text-[12px]">
+                  <span>CAISSIER:</span>
+                  <span className="uppercase">{user?.fullName || user?.username || 'Système'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>PATIENT:</span>

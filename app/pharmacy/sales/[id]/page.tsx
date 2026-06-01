@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
+import { useCurrentUser } from "@/hooks/use-current-user"
 import { Printer, Plus, ArrowLeft } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,7 @@ interface SaleDetail {
 export default function SaleReceiptPage() {
     const router = useRouter()
     const params = useParams()
+    const { user } = useCurrentUser()
     const [sale, setSale] = useState<SaleDetail | null>(null)
     const [loading, setLoading] = useState(true)
     const [isThermal, setIsThermal] = useState(false)
@@ -192,7 +194,7 @@ export default function SaleReceiptPage() {
             )}
 
             {/* Thermal Receipt Version */}
-            {isThermal && <ThermalReceipt sale={sale} />}
+            {isThermal && <ThermalReceipt sale={sale} cashier={user?.fullName || user?.username || 'Système'} />}
 
             <style jsx global>{`
         @media print {
@@ -210,21 +212,24 @@ export default function SaleReceiptPage() {
     )
 }
 
-function ThermalReceipt({ sale }: { sale: SaleDetail }) {
+function ThermalReceipt({ sale, cashier }: { sale: SaleDetail, cashier: string }) {
     return (
         <div className={cn(
             "font-mono text-black bg-white p-4 max-w-[80mm] mx-auto border-x border-dashed border-gray-200 shadow-xl print:shadow-none print:border-none",
             "block print:block thermal-only"
         )}>
-            <div className="text-center space-y-1 mb-4">
-                <h1 className="text-xl font-black">MEDICARE HOSPITAL</h1>
-                <p className="text-[9px] uppercase tracking-wider">Service Pharmacie</p>
+            <div className="text-center mb-4">
+                <h1 className="text-base font-black uppercase">CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h1>
+                <p className="text-[10px] font-bold mt-1">NIF: 500253456</p>
                 <div className="border-t border-black border-dashed my-2" />
-                <p className="text-[10px] font-bold">REÇU DE VENTE</p>
+                <p className="text-[10px] font-bold">REÇU DE PHARMACIE</p>
                 <p className="text-[8px]">#{sale.id.slice(0, 8).toUpperCase()}</p>
             </div>
-
             <div className="text-[10px] space-y-1 mb-4">
+                <div className="flex justify-between italic text-[11px]">
+                    <span>CAISSIER:</span>
+                    <span className="uppercase">{cashier}</span>
+                </div>
                 <div className="flex justify-between">
                     <span>Date:</span>
                     <span>{format(new Date(sale.saleDate), 'dd/MM/yy HH:mm')}</span>
@@ -285,6 +290,6 @@ function ThermalReceipt({ sale }: { sale: SaleDetail }) {
                 <p className="text-[7px] leading-tight">Les médicaments ne sont pas repris<br />ni échangés</p>
                 <div className="pt-4 opacity-10">***</div>
             </div>
-        </div>
+        </div >
     )
 }
