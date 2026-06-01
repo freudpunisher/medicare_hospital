@@ -52,7 +52,7 @@ import { useCurrentUser } from "@/hooks/use-current-user"
 const mainNav = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "Patients", href: "/patients", icon: Users },
-  { title: "Doctors", href: "/doctors", icon: UserCog },
+  // { title: "Doctors", href: "/doctors", icon: UserCog },
 ]
 
 const clinicalNav = [
@@ -64,8 +64,8 @@ const clinicalNav = [
 
 const insuranceNav = [
   { title: "Assurances", href: "/insurances", icon: Shield },
-  { title: "Bordereaux", href: "/insurances/claims", icon: ScrollText },
-  { title: "Règlements", href: "/insurances/payments", icon: History },
+  // { title: "Bordereaux", href: "/insurances/claims", icon: ScrollText },
+  // { title: "Règlements", href: "/insurances/payments", icon: History },
 ]
 
 const billingNav = [
