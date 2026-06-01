@@ -14,12 +14,8 @@ services:
       # ── Connect to the PostgreSQL installed on the Windows host ──────────
       DATABASE_URL: postgresql://${POSTGRES_USER:-medicare_user}:${POSTGRES_PASSWORD:-securepassword}@host.docker.internal:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-medicare}
       NODE_ENV: production
-      # Seed admin on first boot (set to "false" after first run)
-      SEED_ADMIN: ${SEED_ADMIN:-true}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@1234}
-      ADMIN_FULLNAME: ${ADMIN_FULLNAME:-Administrateur}
-      SESSION_SECRET: ${SESSION_SECRET}
+      # Security & Session
+      SESSION_SECRET: ${SESSION_SECRET:-your_super_secret_base64_string_here}
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
