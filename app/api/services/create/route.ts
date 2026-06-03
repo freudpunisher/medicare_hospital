@@ -1,22 +1,39 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { services } from '@/db/schema'
+import { desc, sql } from 'drizzle-orm'
 
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { name, code, description, isBillable } = body
+        const { name, description, isBillable } = body
 
-        if (!name || !code) {
+        if (!name) {
             return NextResponse.json({
                 success: false,
-                error: 'Le nom et le code du service sont requis'
+                error: 'Le nom du service est requis'
             }, { status: 400 })
+        }
+
+        // Automatic Code Generation: SVC-001, SVC-002...
+        const lastService = await db.select({ code: services.code })
+            .from(services)
+            .where(sql`code LIKE 'SVC-%'`)
+            .orderBy(desc(services.code))
+            .limit(1)
+
+        let nextCode = 'SVC-001'
+        if (lastService.length > 0) {
+            const lastCode = lastService[0].code
+            const lastNum = parseInt(lastCode.split('-')[1])
+            if (!isNaN(lastNum)) {
+                nextCode = `SVC-${(lastNum + 1).toString().padStart(3, '0')}`
+            }
         }
 
         const [newService] = await db.insert(services).values({
             name,
-            code: code.toUpperCase(),
+            code: nextCode,
             description,
             isBillable: isBillable ?? true,
             isActive: true,
@@ -31,7 +48,7 @@ export async function POST(req: Request) {
         if (error.code === '23505') { // Unique constraint violation
             return NextResponse.json({
                 success: false,
-                error: 'Un service avec ce nom ou ce code existe déjà'
+                error: 'Un service avec ce nom existe déjà'
             }, { status: 400 })
         }
         return NextResponse.json({
