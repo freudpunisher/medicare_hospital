@@ -11,6 +11,7 @@ export async function POST(req: Request) {
       dateOfBirth,
       gender,
       phone,
+      address,
       quartierId,
       // Multiple insurances support
       insurances = [],
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
         dateOfBirth,
         gender,
         phone,
+        address: address ?? null,
         quartierId: quartierId ?? null,
         isInsured: hasActiveInsurance,
         // Legacy fields mapping

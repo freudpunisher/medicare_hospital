@@ -91,7 +91,7 @@ export default function DashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {stats.kpis.map((kpi) => {
+        {stats?.kpis?.map((kpi) => {
           const Icon = ICON_MAP[kpi.title] || Activity
           return (
             <Card key={kpi.title} className="rounded-[2rem] border-none shadow-sm bg-card/50 backdrop-blur-sm">
@@ -127,7 +127,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Total Encaissé</p>
                 <p className="text-xl font-black text-foreground">
-                  {stats.financials.totalIncome.toLocaleString()} <span className="text-xs font-normal">FBU</span>
+                  {stats?.financials?.totalIncome?.toLocaleString() || '0'} <span className="text-xs font-normal">FBU</span>
                 </p>
               </div>
             </div>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Dettes Clients/Assurances</p>
                 <p className="text-xl font-black text-foreground">
-                  {stats.financials.moneyOwed.toLocaleString()} <span className="text-xs font-normal">FBU</span>
+                  {stats?.financials?.moneyOwed?.toLocaleString() || '0'} <span className="text-xs font-normal">FBU</span>
                 </p>
               </div>
             </div>
@@ -152,20 +152,20 @@ export default function DashboardPage() {
 
         <Card className={cn(
           "border-none rounded-[2rem]",
-          stats.financials.expiringCount > 0 ? "bg-destructive/5" : "bg-primary/5"
+          (stats?.financials?.expiringCount || 0) > 0 ? "bg-destructive/5" : "bg-primary/5"
         )}>
           <CardContent className="p-5">
             <div className="flex items-center gap-3">
               <div className={cn(
                 "flex size-10 items-center justify-center rounded-xl",
-                stats.financials.expiringCount > 0 ? "bg-destructive/10" : "bg-primary/10"
+                (stats?.financials?.expiringCount || 0) > 0 ? "bg-destructive/10" : "bg-primary/10"
               )}>
-                <AlertTriangle className={cn("size-5", stats.financials.expiringCount > 0 ? "text-destructive" : "text-primary")} />
+                <AlertTriangle className={cn("size-5", (stats?.financials?.expiringCount || 0) > 0 ? "text-destructive" : "text-primary")} />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Médicaments à Expirer (3m)</p>
-                <p className={cn("text-xl font-black", stats.financials.expiringCount > 0 ? "text-destructive" : "text-foreground")}>
-                  {stats.financials.expiringCount} <span className="text-xs font-normal">Lots</span>
+                <p className={cn("text-xl font-black", (stats?.financials?.expiringCount || 0) > 0 ? "text-destructive" : "text-foreground")}>
+                  {stats?.financials?.expiringCount || 0} <span className="text-xs font-normal">Lots</span>
                 </p>
               </div>
             </div>
@@ -181,7 +181,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Rentabilité Nette</p>
                 <p className="text-xl font-black text-foreground">
-                  {stats.financials.netResult.toLocaleString()} <span className="text-xs font-normal">FBU</span>
+                  {stats?.financials?.netResult?.toLocaleString() || '0'} <span className="text-xs font-normal">FBU</span>
                 </p>
               </div>
             </div>
@@ -203,7 +203,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="h-[300px] mt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.monthlyRevenue}>
+                <BarChart data={stats?.monthlyRevenue || []}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
                   <XAxis
                     dataKey="month"
@@ -248,7 +248,7 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stats.invoiceStatus}
+                    data={stats?.invoiceStatus || []}
                     cx="50%"
                     cy="50%"
                     innerRadius={70}
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                     paddingAngle={8}
                     dataKey="value"
                   >
-                    {stats.invoiceStatus.map((_, index) => (
+                    {(stats?.invoiceStatus || []).map((_, index) => (
                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
                     ))}
                   </Pie>
@@ -265,7 +265,7 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-4 w-full">
-              {stats.invoiceStatus.map((status, i) => (
+              {(stats?.invoiceStatus || []).map((status, i) => (
                 <div key={status.name} className="text-center">
                   <p className="text-lg font-black" style={{ color: PIE_COLORS[i] }}>{status.value}</p>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{status.name}</p>
@@ -289,7 +289,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stats.popularActs.map((act, index) => (
+              {(stats?.popularActs || []).map((act, index) => (
                 <div key={act.id} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 group hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">

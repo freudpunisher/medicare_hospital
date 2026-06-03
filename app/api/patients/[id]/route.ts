@@ -59,6 +59,7 @@ export async function PATCH(
       dateOfBirth,
       gender,
       phone,
+      address,
       quartierId,
       // Multiple insurances support
       insurances,
@@ -70,6 +71,7 @@ export async function PATCH(
     if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth
     if (gender !== undefined) updateData.gender = gender
     if (phone !== undefined) updateData.phone = phone
+    if (address !== undefined) updateData.address = address
     if (quartierId !== undefined) updateData.quartierId = quartierId
 
     // Determine if the patient is considered insured overall based on new insurances array

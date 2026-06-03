@@ -230,8 +230,13 @@ export default function PatientsPage() {
                       <TableCell className="text-muted-foreground text-xs">
                         {new Date(patient.createdAt).toLocaleDateString("fr-FR")}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/patients/${patient.id}`}>
+                            Détails
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary hover:bg-primary/5">
                           <Link href={`/patients/${patient.id}/edit`}>Modifier</Link>
                         </Button>
                       </TableCell>

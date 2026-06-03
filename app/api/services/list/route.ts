@@ -1,21 +1,36 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { services } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { services, medicalActs } from '@/db/schema'
+import { sql } from 'drizzle-orm'
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url)
-    const activeOnly = searchParams.get('active') === 'true'
+    const list = await db.select({
+      id: services.id,
+      name: services.name,
+      code: services.code,
+      description: services.description,
+      isBillable: services.isBillable,
+      isActive: services.isActive,
+      createdAt: services.createdAt,
+      actCount: sql<number>`(
+        select count(*)::int 
+        from ${medicalActs} 
+        where service_id = ${services.id}
+      )`
+    })
+      .from(services)
+      .orderBy(services.name)
 
-    const query = activeOnly
-      ? db.select().from(services).where(eq(services.isActive, true))
-      : db.select().from(services)
-
-    const data = await query.orderBy(services.name)
-    return NextResponse.json({ data })
+    return NextResponse.json({
+      success: true,
+      data: list
+    })
   } catch (error) {
     console.error('Failed to fetch services:', error)
-    return NextResponse.json({ error: 'Failed to fetch services' }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch services'
+    }, { status: 500 })
   }
 }

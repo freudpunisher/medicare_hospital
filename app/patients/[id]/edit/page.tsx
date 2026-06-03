@@ -103,6 +103,7 @@ export default function EditPatientPage() {
     dateOfBirth: "",
     gender: "Male",
     phone: "",
+    address: "",
     quartierId: null as string | null,
     isInsured: false,
   })
@@ -216,6 +217,7 @@ export default function EditPatientPage() {
         dateOfBirth: data.dateOfBirth ?? "",
         gender: data.gender ?? "Male",
         phone: data.phone ?? "",
+        address: (data as any).address ?? "",
         quartierId: data.quartierId ?? null,
         isInsured: data.isInsured ?? false,
       })
@@ -357,13 +359,24 @@ export default function EditPatientPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Téléphone</Label>
-              <Input
-                id="phone"
-                value={newPatient.phone}
-                onChange={(e) => setNewPatient((p) => ({ ...p, phone: e.target.value }))}
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Téléphone</Label>
+                <Input
+                  id="phone"
+                  value={newPatient.phone}
+                  onChange={(e) => setNewPatient((p) => ({ ...p, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Adresse (Avenue, Rue, Parents...)</Label>
+                <Input
+                  id="address"
+                  value={newPatient.address}
+                  placeholder="ex: Avenue du Large, Maison n°12..."
+                  onChange={(e) => setNewPatient((p) => ({ ...p, address: e.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
