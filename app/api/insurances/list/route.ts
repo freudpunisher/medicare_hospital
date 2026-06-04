@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { insurances } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { desc } from 'drizzle-orm'
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url)
-    const activeOnly = searchParams.get('active') === 'true'
+    const list = await db.select()
+      .from(insurances)
+      .orderBy(desc(insurances.createdAt))
 
-    const query = activeOnly
-      ? db.select().from(insurances).where(eq(insurances.isActive, true))
-      : db.select().from(insurances)
-
-    const items = await query.orderBy(insurances.name)
-
-    return NextResponse.json({ data: items })
+    return NextResponse.json({
+      success: true,
+      data: list
+    })
   } catch (error) {
     console.error('Failed to fetch insurances:', error)
-    return NextResponse.json({ error: 'Failed to fetch insurances' }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch insurance providers'
+    }, { status: 500 })
   }
 }

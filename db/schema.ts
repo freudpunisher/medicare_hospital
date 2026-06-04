@@ -9,6 +9,7 @@ import {
   foreignKey,
   index,
   decimal,
+  serial,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -91,6 +92,8 @@ export const insurances = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 255 }).notNull().unique(),
     contactInfo: varchar('contact_info', { length: 255 }),
+    email: varchar('email', { length: 255 }),
+    phone: varchar('phone', { length: 50 }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -108,6 +111,7 @@ export const patients = pgTable(
   'patients',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    patientNumber: serial('patient_number'),
     firstName: varchar('first_name', { length: 100 }).notNull(),
     lastName: varchar('last_name', { length: 100 }).notNull(),
     dateOfBirth: varchar('date_of_birth', { length: 10 }).notNull(),

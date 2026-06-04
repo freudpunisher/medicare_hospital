@@ -26,6 +26,7 @@ import { PageHeader } from "@/components/page-header"
 
 interface Patient {
   id: string
+  patientNumber: number
   firstName: string
   lastName: string
   dateOfBirth: string
@@ -168,6 +169,7 @@ export default function PatientsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[80px]">ID</TableHead>
                   <TableHead>Patient</TableHead>
                   <TableHead>Sexe</TableHead>
                   <TableHead>Date de naissance</TableHead>
@@ -184,7 +186,12 @@ export default function PatientsPage() {
                   return (
                     <TableRow key={patient.id}>
                       <TableCell>
-                        <div className="font-medium text-foreground">
+                        <Badge variant="outline" className="font-black text-xs px-2 py-0.5 bg-muted/30">
+                          #{patient.patientNumber}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-bold text-foreground">
                           {patient.firstName} {patient.lastName}
                         </div>
                       </TableCell>

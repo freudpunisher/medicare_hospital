@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Plus, ShieldAlert, PowerOff, Power } from "lucide-react"
+import { useEffect, useState, useMemo } from "react"
+import { Plus, Power, PowerOff, Loader2, Scissors, ShieldCheck, ShieldAlert, Edit2, Search, Filter } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,16 +35,19 @@ import {
 import { PageHeader } from "@/components/page-header"
 import { StatusBadge } from "@/components/status-badge"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface Act {
   id: string
   code: string
   name: string
-  serviceId: string
-  specialtyId: string | null
   basePrice: string
   requiresAuthorization: boolean
   isActive: boolean
+  serviceId: string
+  serviceName: string | null
+  specialtyId: string | null
+  specialtyName: string | null
 }
 
 interface Service {
@@ -64,307 +67,382 @@ export default function ActsPage() {
   const [services, setServices] = useState<Service[]>([])
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Filtering states
+  const [searchTerm, setSearchTerm] = useState("")
+  const [serviceFilter, setServiceFilter] = useState("all")
+  const [specialtyFilter, setSpecialtyFilter] = useState("all")
+
   const [form, setForm] = useState({
-    code: "",
     name: "",
     serviceId: "",
     specialtyId: null as string | null,
     basePrice: 0,
     requiresAuthorization: false,
-    isActive: true,
   })
 
   useEffect(() => {
-    fetchAll()
+    fetchInitialData()
   }, [])
 
-  async function fetchAll() {
+  async function fetchInitialData() {
     setLoading(true)
-    setError(null)
     try {
       const [actsRes, servicesRes, specialtiesRes] = await Promise.all([
         fetch("/api/acts/list"),
-        fetch("/api/services/list?active=true"),
-        fetch("/api/specialties/list?active=true"),
+        fetch("/api/services/list"),
+        fetch("/api/specialties/list")
       ])
 
-      const actsData = await actsRes.json()
-      const servicesData = await servicesRes.json()
-      const specialtiesData = await specialtiesRes.json()
+      const actsResult = await actsRes.json()
+      const servicesResult = await servicesRes.json()
+      const specialtiesResult = await specialtiesRes.json()
 
-      if (!actsRes.ok) {
-        setError(actsData?.error || "Impossible de charger les actes médicaux")
-        return
+      if (actsResult.success && servicesResult.success && specialtiesResult.success) {
+        setData(actsResult.data)
+        setServices(servicesResult.data)
+        setSpecialties(specialtiesResult.data)
+      } else {
+        toast.error("Erreur lors du chargement du catalogue")
       }
-
-      setData(actsData.data || [])
-      if (servicesRes.ok) setServices(servicesData.data || [])
-      if (specialtiesRes.ok) setSpecialties(specialtiesData.data || [])
     } catch (err) {
-      setError("Impossible de charger les actes médicaux")
+      toast.error("Impossible de se connecter au serveur")
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleAdd() {
-    if (!form.code || !form.name || !form.serviceId) {
-      toast.error("Veuillez remplir tous les champs obligatoires")
-      return
-    }
+  function resetForm() {
+    setForm({ name: "", serviceId: "", specialtyId: null, basePrice: 0, requiresAuthorization: false })
+    setEditingId(null)
+  }
+
+  function handleEditClick(act: Act) {
+    setEditingId(act.id)
+    setForm({
+      name: act.name,
+      serviceId: act.serviceId,
+      specialtyId: act.specialtyId,
+      basePrice: parseFloat(act.basePrice) || 0,
+      requiresAuthorization: act.requiresAuthorization,
+    })
+    setOpen(true)
+  }
+
+  async function handleSubmit() {
+    if (!form.name || !form.serviceId) return
+    setSubmitting(true)
     try {
-      const res = await fetch("/api/acts/create", {
-        method: "POST",
+      const url = editingId ? `/api/acts/${editingId}` : "/api/acts/create"
+      const method = editingId ? "PATCH" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: form.code,
-          name: form.name,
-          serviceId: form.serviceId,
-          specialtyId: form.specialtyId,
-          basePrice: form.basePrice,
-          requiresAuthorization: form.requiresAuthorization,
-          isActive: form.isActive,
-        }),
+        body: JSON.stringify(form),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data?.error || "Échec de l'ajout de l'acte médical")
-        return
+      const result = await res.json()
+      if (res.ok && result.success) {
+        toast.success(editingId ? "Acte mis à jour" : "Acte médical ajouté")
+        setOpen(false)
+        resetForm()
+        fetchInitialData()
+      } else {
+        toast.error(result.error || "Erreur lors de l'enregistrement")
       }
-      setOpen(false)
-      setForm({
-        code: "",
-        name: "",
-        serviceId: "",
-        specialtyId: null,
-        basePrice: 0,
-        requiresAuthorization: false,
-        isActive: true,
-      })
-      await fetchAll()
-      toast.success("Acte médical ajouté avec succès")
     } catch (err) {
-      toast.error("Échec de l'ajout de l'acte médical")
+      toast.error("Erreur de connexion")
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  async function handleToggleActive(act: Act) {
-    setTogglingId(act.id)
+  async function toggleField(act: Act, field: 'isActive' | 'requiresAuthorization') {
     try {
       const res = await fetch(`/api/acts/${act.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !act.isActive }),
+        body: JSON.stringify({ [field]: !act[field] }),
       })
-      const resData = await res.json()
-      if (!res.ok) {
-        toast.error(resData?.error || "Échec de la mise à jour du statut")
-        return
+      const result = await res.json()
+      if (res.ok && result.success) {
+        toast.success(`Acte mis à jour`)
+        setData(prev => prev.map(a => a.id === act.id ? { ...a, [field]: !act[field] } : a))
+      } else {
+        toast.error(result.error || "Erreur lors de la modification")
       }
-      setData((prev) =>
-        prev.map((a) => (a.id === act.id ? { ...a, isActive: !act.isActive } : a))
-      )
-      toast.success(act.isActive ? "Acte désactivé" : "Acte activé")
     } catch (err) {
-      toast.error("Échec de la mise à jour du statut")
-    } finally {
-      setTogglingId(null)
+      toast.error("Erreur de connexion")
     }
   }
 
+  const filteredData = useMemo(() => {
+    return data.filter(act => {
+      const matchesSearch =
+        act.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        act.code.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesService = serviceFilter === "all" || act.serviceId === serviceFilter
+      const matchesSpecialty = specialtyFilter === "all" || act.specialtyId === specialtyFilter
+
+      return matchesSearch && matchesService && matchesSpecialty
+    })
+  }, [data, searchTerm, serviceFilter, specialtyFilter])
+
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader title="Actes Médicaux" description="Gérer les actes et procédures médicaux facturables">
-        <Dialog open={open} onOpenChange={setOpen}>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      <PageHeader title="Catalogue des Actes" description="Définir les procédures médicales et leurs tarifications">
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="size-4 mr-1" />Ajouter un acte</Button>
+            <Button size="sm" className="rounded-full shadow-md px-5 font-bold">
+              <Plus className="size-4 mr-2" />
+              Nouvel Acte
+            </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="rounded-[2.5rem] border-none shadow-2xl backdrop-blur-xl bg-card/95 sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Nouvel acte médical</DialogTitle>
-              <DialogDescription>Renseignez les détails de l'acte ci-dessous.</DialogDescription>
+              <DialogTitle className="text-2xl font-black">{editingId ? "Modifier l'Acte Médical" : "Ajouter un Acte Médical"}</DialogTitle>
+              <DialogDescription>{editingId ? "Mettez à jour les détails de cette procédure." : "Définissez une nouvelle procédure ou prestation facturable."}</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-6 py-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Code</Label>
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Nom de l'acte</Label>
                   <Input
-                    value={form.code}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))
-                    }
-                    placeholder="ex. CONS-GEN"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nom</Label>
-                  <Input
+                    placeholder="ex: Consultation de Spécialité, Extraction..."
+                    className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20"
                     value={form.name}
                     onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="ex. Consultation générale"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Service</Label>
-                  <Select
-                    value={form.serviceId}
-                    onValueChange={(v) => setForm((f) => ({ ...f, serviceId: v }))}
-                  >
-                    <SelectTrigger>
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Service Parent</Label>
+                  <Select value={form.serviceId} onValueChange={(v) => setForm((f) => ({ ...f, serviceId: v }))}>
+                    <SelectTrigger className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20">
                       <SelectValue placeholder="Choisir un service" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {services.filter((s) => s.isActive).map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
+                    <SelectContent className="rounded-2xl border-none shadow-xl">
+                      {services.filter(s => s.isActive).map((s) => (
+                        <SelectItem key={s.id} value={s.id} className="rounded-xl">{s.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Spécialité (optionnel)</Label>
-                  <Select
-                    value={form.specialtyId ?? "none"}
-                    onValueChange={(v) =>
-                      setForm((f) => ({ ...f, specialtyId: v === "none" ? null : v }))
-                    }
-                  >
-                    <SelectTrigger>
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Spécialité (Optionnelle)</Label>
+                  <Select value={form.specialtyId || "none"} onValueChange={(v) => setForm((f) => ({ ...f, specialtyId: v === "none" ? null : v }))}>
+                    <SelectTrigger className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20">
                       <SelectValue placeholder="Aucune" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Aucune</SelectItem>
-                      {specialties.filter((s) => s.isActive).map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
+                    <SelectContent className="rounded-2xl border-none shadow-xl">
+                      <SelectItem value="none" className="rounded-xl font-bold italic opacity-60">Aucune</SelectItem>
+                      {specialties.filter(s => s.isActive).map((s) => (
+                        <SelectItem key={s.id} value={s.id} className="rounded-xl">{s.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Prix de base (FBU)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={form.basePrice}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, basePrice: parseFloat(e.target.value) || 0 }))
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={form.requiresAuthorization}
-                  onCheckedChange={(c) =>
-                    setForm((f) => ({ ...f, requiresAuthorization: c }))
-                  }
-                />
-                <Label>Nécessite une autorisation</Label>
+
+              <div className="grid grid-cols-2 gap-6 items-center">
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Prix de Base (FBU)</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20 font-black"
+                    value={form.basePrice}
+                    onChange={(e) => setForm((f) => ({ ...f, basePrice: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div className="flex items-center space-x-3 p-4 rounded-2xl bg-warning/5 border border-warning/10 h-10 mt-6">
+                  <Switch
+                    id="auth"
+                    checked={form.requiresAuthorization}
+                    onCheckedChange={(c) => setForm((f) => ({ ...f, requiresAuthorization: c }))}
+                  />
+                  <Label htmlFor="auth" className="font-bold cursor-pointer text-xs">Autorisation requise</Label>
+                </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
-              <Button onClick={handleAdd}>Ajouter</Button>
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={() => { setOpen(false); resetForm(); }} className="rounded-full font-bold">Annuler</Button>
+              <Button onClick={handleSubmit} disabled={submitting || !form.name || !form.serviceId} className="rounded-full font-black px-8 shadow-lg">
+                {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : (editingId ? <Edit2 className="size-4 mr-2" /> : <Plus className="size-4 mr-2" />)}
+                {editingId ? "Mettre à jour" : "Valider l'Acte"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </PageHeader>
 
-      <Card>
+      {/* Filter Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-card/40 p-4 rounded-[2rem] border border-muted/20 backdrop-blur-sm">
+        <div className="relative col-span-1 md:col-span-2">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground opacity-50" />
+          <Input
+            placeholder="Rechercher par nom ou code..."
+            className="pl-10 rounded-2xl border-none bg-muted/20 focus:ring-primary/20 font-medium"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div>
+          <Select value={serviceFilter} onValueChange={setServiceFilter}>
+            <SelectTrigger className="rounded-2xl border-none bg-muted/20 focus:ring-primary/20 font-bold text-xs uppercase">
+              <div className="flex items-center gap-2">
+                <Filter className="size-3 opacity-50" />
+                <SelectValue placeholder="Service: Tous" />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-none shadow-xl">
+              <SelectItem value="all" className="rounded-xl font-bold italic">Tous les Services</SelectItem>
+              {services.map(s => (
+                <SelectItem key={s.id} value={s.id} className="rounded-xl">{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+            <SelectTrigger className="rounded-2xl border-none bg-muted/20 focus:ring-primary/20 font-bold text-xs uppercase">
+              <div className="flex items-center gap-2">
+                <Filter className="size-3 opacity-50" />
+                <SelectValue placeholder="Spécialité: Toutes" />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-none shadow-xl">
+              <SelectItem value="all" className="rounded-xl font-bold italic">Toutes les Spécialités</SelectItem>
+              {specialties.map(s => (
+                <SelectItem key={s.id} value={s.id} className="rounded-xl">{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Card className="rounded-[2.5rem] border-none shadow-sm overflow-hidden bg-card/60 backdrop-blur-xl font-medium">
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Chargement des actes médicaux...</div>
-          ) : error ? (
-            <div className="p-8 text-center text-red-600">{error}</div>
-          ) : data.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">Aucun acte médical trouvé</div>
+            <div className="p-20 text-center flex flex-col items-center gap-4">
+              <Loader2 className="size-10 animate-spin text-primary opacity-50" />
+              <p className="text-muted-foreground font-bold text-sm animate-pulse">Chargement de la tarification...</p>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div className="p-20 text-center flex flex-col items-center gap-6">
+              <div className="size-20 rounded-[2rem] bg-muted/30 flex items-center justify-center text-muted-foreground/40 border-2 border-dashed border-muted-foreground/20">
+                <Scissors className="size-10" />
+              </div>
+              <div className="max-w-xs">
+                <h3 className="text-lg font-black tracking-tight">Aucun résultat</h3>
+                <p className="text-sm text-muted-foreground mt-1 text-balance">Aucun acte ne correspond à vos critères de recherche dans le catalogue actuel.</p>
+              </div>
+              {(searchTerm || serviceFilter !== "all" || specialtyFilter !== "all") && (
+                <Button variant="ghost" className="rounded-full font-black text-xs uppercase" onClick={() => { setSearchTerm(""); setServiceFilter("all"); setSpecialtyFilter("all"); }}>
+                  Réinitialiser les filtres
+                </Button>
+              )}
+            </div>
           ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Spécialité</TableHead>
-                  <TableHead>Prix (FBU)</TableHead>
-                  <TableHead>Autorisation</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Actions</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-8 font-black text-[10px] uppercase tracking-widest py-5">Prestation</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest py-5">Classification</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest py-5">Tarif (FBU)</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest py-5">Autorisation</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest py-5">Statut</TableHead>
+                  <TableHead className="text-right pr-8 font-black text-[10px] uppercase tracking-widest py-5">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((act) => {
-                  const service = services.find((s) => s.id === act.serviceId)
-                  const specialty = specialties.find((s) => s.id === act.specialtyId)
-                  const price = Number(act.basePrice)
-                  return (
-                    <TableRow key={act.id}>
-                      <TableCell>
-                        <Badge variant="secondary" className="font-mono text-xs">
-                          {act.code}
+                {filteredData.map((act) => (
+                  <TableRow key={act.id} className="group hover:bg-muted/40 transition-colors border-muted/50">
+                    <TableCell className="pl-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-2xl bg-teal-500/10 flex items-center justify-center text-teal-600 border border-teal-500/10 group-hover:bg-teal-500 transition-colors group-hover:text-white shadow-sm">
+                          <Scissors className="size-5" />
+                        </div>
+                        <div>
+                          <p className="font-black text-base tracking-tight">{act.name}</p>
+                          <p className="text-[10px] font-mono font-bold opacity-50 uppercase tracking-tighter">{act.code}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className="w-fit text-[9px] font-black uppercase px-2 py-0 border-primary/20 text-primary bg-primary/5">
+                          {act.serviceName || "Service N/A"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium text-foreground">{act.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{service?.name ?? "N/A"}</TableCell>
-                      <TableCell className="text-muted-foreground">{specialty?.name ?? "-"}</TableCell>
-                      <TableCell className="font-medium text-foreground">
-                        {Number.isNaN(price)
-                          ? act.basePrice
-                          : price.toLocaleString("fr-FR")}{" "}
-                        <span className="text-xs text-muted-foreground">FBU</span>
-                      </TableCell>
-                      <TableCell>
-                        {act.requiresAuthorization ? (
-                          <Badge
-                            variant="outline"
-                            className="border-warning/30 bg-warning/10 text-warning text-xs"
-                          >
-                            <ShieldAlert className="size-3 mr-1" />
-                            Requise
+                        {act.specialtyName && (
+                          <Badge variant="outline" className="w-fit text-[9px] font-black uppercase px-2 py-0 border-indigo-200 text-indigo-600 bg-indigo-50">
+                            {act.specialtyName}
                           </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Non</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge active={act.isActive} />
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                      <div className="flex items-center gap-1 font-black text-base">
+                        {Number(act.basePrice).toLocaleString('fr-FR')}
+                        <span className="text-[10px] text-muted-foreground/60 uppercase">fbu</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-5">
+                      {act.requiresAuthorization ? (
+                        <Badge variant="outline" className="rounded-full bg-orange-50 border-orange-200 text-orange-600 font-black text-[9px] px-2 py-0.5">
+                          <ShieldAlert className="size-3 mr-1" /> OUI
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="rounded-full bg-blue-50 border-blue-200 text-blue-600 font-black text-[9px] px-2 py-0.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                          <ShieldCheck className="size-3 mr-1" /> NON
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-5">
+                      <StatusBadge active={act.isActive} />
+                    </TableCell>
+                    <TableCell className="text-right pr-8 py-5">
+                      <div className="flex items-center justify-end gap-2">
                         <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={togglingId === act.id}
-                          onClick={() => handleToggleActive(act)}
-                          className={
-                            act.isActive
-                              ? "text-destructive border-destructive/30 hover:bg-destructive/10"
-                              : "text-green-600 border-green-600/30 hover:bg-green-50"
-                          }
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full size-9 opacity-0 group-hover:opacity-100 transition-all hover:bg-primary/10 hover:text-primary"
+                          onClick={() => handleEditClick(act)}
+                          title="Modifier"
                         >
-                          {act.isActive ? (
-                            <><PowerOff className="size-3 mr-1" />Désactiver</>
-                          ) : (
-                            <><Power className="size-3 mr-1" />Activer</>
-                          )}
+                          <Edit2 className="size-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            "rounded-full size-9 transition-all opacity-0 group-hover:opacity-100",
+                            act.isActive ? "hover:bg-red-500/10 hover:text-red-600" : "hover:bg-green-500/10 hover:text-green-600"
+                          )}
+                          onClick={() => toggleField(act, 'isActive')}
+                          title={act.isActive ? "Désactiver" : "Activer"}
+                        >
+                          {act.isActive ? <PowerOff className="size-4" /> : <Power className="size-4" />}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {!loading && filteredData.length > 0 && (
+        <p className="text-[10px] font-bold text-center text-muted-foreground uppercase tracking-[0.2em] pt-4">
+          — {filteredData.length} actes affichés sur {data.length} au total —
+        </p>
+      )}
     </div>
   )
 }

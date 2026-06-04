@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils"
 
 interface PatientDetail {
     id: string
+    patientNumber: number
     firstName: string
     lastName: string
     dateOfBirth: string
@@ -163,7 +164,7 @@ export default function PatientDetailPage() {
                             )}
                         </div>
                         <p className="text-sm text-muted-foreground font-medium mt-1">
-                            ID Patient: <span className="font-mono text-xs">{patient.id.split('-')[0].toUpperCase()}</span> • Inscrit le {new Date(patient.createdAt).toLocaleDateString('fr-FR')}
+                            ID Patient: <Badge variant="outline" className="font-black text-xs px-2 py-0.5 bg-muted/30 ml-1">#{patient.patientNumber}</Badge> • Inscrit le {new Date(patient.createdAt).toLocaleDateString('fr-FR')}
                         </p>
                     </div>
                 </div>

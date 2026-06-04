@@ -57,7 +57,7 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ name: "", code: "", description: "", isBillable: true })
+  const [form, setForm] = useState({ name: "", description: "", isBillable: true })
 
   useEffect(() => {
     fetchServices()
@@ -81,7 +81,7 @@ export default function ServicesPage() {
   }
 
   async function handleAdd() {
-    if (!form.name || !form.code) return
+    if (!form.name) return
     setSubmitting(true)
     try {
       const res = await fetch("/api/services/create", {
@@ -93,7 +93,7 @@ export default function ServicesPage() {
       if (res.ok && result.success) {
         toast.success("Service ajouté avec succès")
         setOpen(false)
-        setForm({ name: "", code: "", description: "", isBillable: true })
+        setForm({ name: "", description: "", isBillable: true })
         fetchServices() // Refresh list
       } else {
         toast.error(result.error || "Erreur lors de l'ajout")
@@ -155,25 +155,14 @@ export default function ServicesPage() {
               <DialogDescription>Entrez les détails du nouveau service clinique ci-dessous.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Nom du service</Label>
-                  <Input
-                    placeholder="ex: Consultation, Radiologie..."
-                    className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20"
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Code</Label>
-                  <Input
-                    placeholder="ex: SVC-001"
-                    className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20 font-mono"
-                    value={form.code}
-                    onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Nom du service</Label>
+                <Input
+                  placeholder="ex: Consultation, Radiologie..."
+                  className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Description (optionnel)</Label>
@@ -195,7 +184,7 @@ export default function ServicesPage() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)} className="rounded-full font-bold">Annuler</Button>
-              <Button onClick={handleAdd} disabled={submitting || !form.name || !form.code} className="rounded-full font-black px-8 shadow-lg">
+              <Button onClick={handleAdd} disabled={submitting || !form.name} className="rounded-full font-black px-8 shadow-lg">
                 {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : <Plus className="size-4 mr-2" />}
                 Créer le Service
               </Button>
@@ -293,7 +282,7 @@ export default function ServicesPage() {
                           {svc.isActive ? <PowerOff className="size-4" /> : <Power className="size-4" />}
                         </Button>
 
-                        <AlertDialog>
+                        {/* <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
                               variant="ghost"
@@ -320,7 +309,7 @@ export default function ServicesPage() {
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
-                        </AlertDialog>
+                        </AlertDialog> */}
                       </div>
                     </TableCell>
                   </TableRow>

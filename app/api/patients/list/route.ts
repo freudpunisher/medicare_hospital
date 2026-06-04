@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { patients } from '@/db/schema'
-import { and, count, desc, eq, like, or } from 'drizzle-orm'
+import { and, count, desc, eq, like, or, sql } from 'drizzle-orm'
 
 export async function GET(req: Request) {
   try {
@@ -21,7 +21,8 @@ export async function GET(req: Request) {
         or(
           like(patients.firstName, `%${search}%`),
           like(patients.lastName, `%${search}%`),
-          like(patients.phone, `%${search}%`)
+          like(patients.phone, `%${search}%`),
+          like(sql`CAST(${patients.patientNumber} AS TEXT)`, `%${search}%`)
         )
       )
     }
