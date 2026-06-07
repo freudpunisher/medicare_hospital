@@ -44,6 +44,7 @@ interface PatientInsurance {
 
 interface Patient {
   id: string
+  patientNumber: number
   firstName: string
   lastName: string
   phone: string
@@ -153,7 +154,7 @@ export default function BillingPage() {
   // Search patients
   useEffect(() => {
     const handler = setTimeout(async () => {
-      if (searchQuery.length > 1) {
+      if (searchQuery.length >= 1) {
         setLoadingPatients(true)
         try {
           const res = await fetch(`/api/patients/list?search=${encodeURIComponent(searchQuery)}`)
@@ -448,6 +449,8 @@ export default function BillingPage() {
               <div className="text-center mb-2">
                 <h2 className="font-bold uppercase" style={{ fontSize: '15px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
                 <p className="font-bold text-[11px] mt-1">NIF: 500253456</p>
+                <p className="text-[9px] mt-1">Forme juridique: SURL | RC: 00734372/25</p>
+                <p className="text-[9px]">Centre fiscal: DPMC</p>
               </div>
               <div className="w-full border-t border-dashed my-2" />
 
@@ -467,6 +470,10 @@ export default function BillingPage() {
                 <div className="flex justify-between">
                   <span>PATIENT:</span>
                   <span className="uppercase text-right">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ID:</span>
+                  <span className="uppercase text-right">#{lastInvoice.patient.patientNumber}</span>
                 </div>
                 {lastInvoice.selectedInsurances && lastInvoice.selectedInsurances.length > 0 && (
                   <div className="flex-col mt-1">
@@ -547,7 +554,7 @@ export default function BillingPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un patient par nom ou téléphone..."
+                placeholder="Rechercher un patient par nom, téléphone ou ID..."
                 className="pl-10 h-12 text-base border-primary/20 focus-visible:ring-primary"
                 value={searchQuery}
                 onChange={(e) => {
@@ -586,7 +593,9 @@ export default function BillingPage() {
                             <p className="font-semibold text-foreground">
                               {patient.firstName} {patient.lastName}
                             </p>
-                            <p className="text-xs text-muted-foreground">{patient.phone}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {patient.phone} — #{patient.patientNumber}
+                            </p>
                           </div>
                           {patient.isInsured && (
                             <Badge variant="outline" className="ml-auto border-green-500/30 bg-green-500/5 text-green-600 text-[10px] h-5">
@@ -638,6 +647,10 @@ export default function BillingPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-muted/50 p-2 rounded-md">
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">N° Patient</p>
+                    <p className="font-medium">#{selectedPatient.patientNumber}</p>
+                  </div>
                   <div className="bg-muted/50 p-2 rounded-md">
                     <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Genre</p>
                     <p className="font-medium capitalize">{selectedPatient.gender === 'male' ? 'Homme' : 'Femme'}</p>
@@ -863,14 +876,14 @@ export default function BillingPage() {
                       <Smartphone className="size-5" />
                       <span className="text-[10px] font-bold uppercase leading-none">MOB MONEY</span>
                     </Button>
-                    <Button
+                    {/* <Button
                       variant={paymentMethod === 'card' ? 'default' : 'outline'}
                       className={`h-16 flex-col gap-1 ${paymentMethod === 'card' ? 'bg-primary border-primary' : ''}`}
                       onClick={() => setPaymentMethod('card')}
                     >
                       <CreditCard className="size-5" />
                       <span className="text-[10px] font-bold">CARTE</span>
-                    </Button>
+                    </Button> */}
                     <Button
                       variant={paymentMethod === 'loan' ? 'default' : 'outline'}
                       className={`h-16 flex-col gap-1 ${paymentMethod === 'loan' ? 'bg-orange-600 border-orange-600 text-white' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}

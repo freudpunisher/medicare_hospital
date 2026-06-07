@@ -130,7 +130,7 @@ export default function NewSalePage() {
                 toast.success("Vente confirmée !")
                 router.push(`/pharmacy/sales/${data.data.id}`)
             } else {
-                toast.error(data.error || "Une erreur est survenue")
+                toast.error(typeof data.error === 'string' ? data.error : "Une erreur est survenue")
             }
         } catch (err) {
             toast.error("Erreur réseau")

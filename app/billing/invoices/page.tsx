@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
     Search,
     Filter,
@@ -54,7 +54,6 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { useRef } from "react"
 import { InvoiceA4 } from "@/components/billing/invoice-a4"
 import { toast } from "sonner"
 
@@ -83,7 +82,11 @@ export default function InvoicesPage() {
     const [viewingInvoice, setViewingInvoice] = useState<any>(null)
     const [detailsLoading, setDetailsLoading] = useState(false)
     const [showDetails, setShowDetails] = useState(false)
+    const [paymentMethod, setPaymentMethod] = useState<string>("cash")
+    const [paymentReference, setPaymentReference] = useState("")
+    const [isPaying, setIsPaying] = useState(false)
     const printRef = useRef<HTMLDivElement>(null)
+    const receiptRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         async function fetchInvoices() {
@@ -113,6 +116,8 @@ export default function InvoicesPage() {
     const handleViewDetails = async (id: string) => {
         setDetailsLoading(true)
         setShowDetails(true)
+        setPaymentMethod('cash')
+        setPaymentReference('')
         try {
             const res = await fetch(`/api/billing/invoices/${id}`)
             const data = await res.json()
@@ -129,6 +134,97 @@ export default function InvoicesPage() {
             setDetailsLoading(false)
         }
     }
+
+    const handlePayment = async () => {
+        if (!viewingInvoice) return
+        setIsPaying(true)
+        try {
+            const res = await fetch(`/api/billing/invoices/${viewingInvoice.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    paymentMethod,
+                    paymentReference: paymentMethod === 'mobile_money' ? paymentReference : null,
+                    amount: viewingInvoice.patientAmount,
+                })
+            })
+            const data = await res.json()
+            if (!data.success) {
+                toast.error(data.error || 'Échec du paiement')
+                return
+            }
+
+            toast.success('Paiement enregistré avec succès')
+            setShowDetails(false)
+
+            // Refresh invoice list
+            const listRes = await fetch('/api/billing/invoices/list')
+            const listData = await listRes.json()
+            if (listData.success) setInvoices(listData.data)
+        } catch (err) {
+            toast.error('Erreur lors du paiement')
+        } finally {
+            setIsPaying(false)
+        }
+    }
+
+    const handleThermalPrint = useCallback((invoiceData: any) => {
+        if (!invoiceData) return
+
+        const receiptHtml = receiptRef.current?.innerHTML
+        if (!receiptHtml) return
+
+        const win = window.open('', '_blank', 'width=800,height=900')
+        if (!win) return
+
+        win.document.write(`
+            <html>
+                <head>
+                    <title>Reçu - ${invoiceData.invoiceNumber}</title>
+                    <style>
+                        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        body {
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 15px;
+                            font-weight: 700;
+                            background: #fff;
+                            width: 100mm;
+                            padding: 4mm;
+                            margin: 0 auto;
+                            line-height: 1.2;
+                        }
+                        .flex { display: flex; }
+                        .flex-col { display: flex; flex-direction: column; }
+                        .items-center { align-items: center; }
+                        .justify-between { justify-content: space-between; }
+                        .w-full { width: 100%; }
+                        .text-center { text-align: center; }
+                        .text-right { text-align: right; }
+                        .font-bold { font-weight: bold; }
+                        .font-black { font-weight: 900; }
+                        .uppercase { text-transform: uppercase; }
+                        .italic { font-style: italic; }
+                        .my-2 { margin-top: 10px; margin-bottom: 10px; }
+                        .mb-2 { margin-bottom: 10px; }
+                        .border-t { border-top: 1.5px solid #000; }
+                        .border-b { border-bottom: 1.5px solid #000; }
+                        .border-dashed { border-style: dashed; border-top-width: 1.5px; }
+                        .table { display: table; width: 100%; }
+                        .table-row { display: table-row; }
+                        .table-cell { display: table-cell; padding-top: 6px; padding-bottom: 6px; }
+                        @media print {
+                            body { width: 100mm; margin: 0; padding: 4mm; }
+                            @page { size: 100mm auto; margin: 0; }
+                        }
+                    </style>
+                </head>
+                <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+                    <div id="print-content">${receiptHtml}</div>
+                </body>
+            </html>
+        `)
+        win.document.close()
+    }, [])
 
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv =>
@@ -345,8 +441,92 @@ export default function InvoicesPage() {
                 <InvoiceA4 invoice={printingInvoice} ref={printRef} />
             </div>
 
+            {/* Off-screen thermal receipt container */}
+            <div style={{ position: 'fixed', left: '-9999px', top: 0 }}>
+                <div ref={receiptRef}>
+                    {viewingInvoice && (
+                        <div className="flex-col items-center w-full">
+                            <div className="text-center mb-2">
+                                <h2 className="font-bold uppercase" style={{ fontSize: '15px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                                <p className="font-bold text-[11px] mt-1">NIF: 500253456</p>
+                                <p className="text-[9px] mt-1">Forme juridique: SURL | RC: 00734372/25</p>
+                                <p className="text-[9px]">Centre fiscal: DPMC</p>
+                            </div>
+                            <div className="w-full border-t border-dashed my-2" />
+
+                            <div className="w-full flex-col">
+                                <div className="flex justify-between">
+                                    <span>DATE:</span>
+                                    <span>{new Date(viewingInvoice.createdAt).toLocaleString('fr-FR')}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>FACT NO:</span>
+                                    <span>{viewingInvoice.invoiceNumber}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>PATIENT:</span>
+                                    <span className="uppercase text-right">{viewingInvoice.patient.firstName} {viewingInvoice.patient.lastName}</span>
+                                </div>
+                            </div>
+
+                            <div className="w-full border-t border-dashed my-2" />
+
+                            <div className="table">
+                                <div className="table-row border-b font-bold">
+                                    <div className="table-cell">ITEM</div>
+                                    <div className="table-cell text-right">PRIX</div>
+                                </div>
+                                {viewingInvoice.items.map((item: any) => (
+                                    <div key={item.id} className="table-row">
+                                        <div className="table-cell py-1">
+                                            {item.medicalAct.name}
+                                            <br />
+                                            <span className="italic font-bold" style={{ fontSize: '14px' }}>{item.medicalAct.code}</span>
+                                        </div>
+                                        <div className="table-cell text-right">{Number(item.totalPrice).toLocaleString()}FBU</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="w-full border-t border-dashed my-2" />
+
+                            <div className="w-full flex-col">
+                                <div className="flex justify-between font-bold">
+                                    <span>TOTAL BRUT:</span>
+                                    <span>{Number(viewingInvoice.totalAmount).toLocaleString()} FBU</span>
+                                </div>
+                                {Number(viewingInvoice.insuranceAmount) > 0 && (
+                                    <div className="flex justify-between">
+                                        <span>PART ASSURANCE:</span>
+                                        <span>-{Number(viewingInvoice.insuranceAmount).toLocaleString()} FBU</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between font-black" style={{ fontSize: '22px' }}>
+                                    <span>À PAYER:</span>
+                                    <span>{Number(viewingInvoice.patientAmount).toLocaleString()} FBU</span>
+                                </div>
+                                <div className="w-full border-t my-1" />
+                                <div className="flex justify-between">
+                                    <span>STATUT:</span>
+                                    <span className="uppercase font-bold">{viewingInvoice.status === 'paid' ? 'Payée' : 'En attente'}</span>
+                                </div>
+                            </div>
+
+                            <div className="w-full border-t border-dashed my-4" />
+                            <p className="text-center italic font-black" style={{ fontSize: '16px' }}>*** Merci de votre confiance ***</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Invoice Details Dialog */}
-            <Dialog open={showDetails} onOpenChange={setShowDetails}>
+            <Dialog open={showDetails} onOpenChange={(open) => {
+                setShowDetails(open)
+                if (!open) {
+                    setPaymentMethod('cash')
+                    setPaymentReference('')
+                }
+            }}>
                 <DialogContent className="max-w-2xl rounded-[2rem]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-xl font-black">
@@ -377,7 +557,7 @@ export default function InvoicesPage() {
                                     </div>
                                     <div className="flex justify-between text-xs mt-1">
                                         <span className="text-muted-foreground">Statut:</span>
-                                        <span className="font-bold uppercase text-primary">{viewingInvoice.status}</span>
+                                        <span className="font-bold uppercase text-primary">{viewingInvoice.status === 'paid' ? 'Payée' : viewingInvoice.status === 'pending' ? 'En attente' : viewingInvoice.status}</span>
                                     </div>
                                 </div>
                             </div>
@@ -425,6 +605,84 @@ export default function InvoicesPage() {
                                     <span className="font-black text-primary">{Number(viewingInvoice.patientAmount).toLocaleString()} FBU</span>
                                 </div>
                             </div>
+
+                            {/* Print buttons */}
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 gap-2"
+                                    onClick={() => handlePrintA4(viewingInvoice)}
+                                >
+                                    <Printer className="size-4" /> Imprimer A4
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 gap-2"
+                                    onClick={() => handleThermalPrint(viewingInvoice)}
+                                >
+                                    <Printer className="size-4" /> Reçu Thermique
+                                </Button>
+                            </div>
+
+                            {/* Payment section for pending invoices */}
+                            {viewingInvoice.status === 'pending' && (
+                                <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 space-y-4">
+                                    <h4 className="text-sm font-black uppercase text-orange-700 flex items-center gap-2">
+                                        <CreditCard className="size-4" /> Enregistrer un Paiement
+                                    </h4>
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Button
+                                            variant={paymentMethod === 'cash' ? 'default' : 'outline'}
+                                            className={`h-14 flex-col gap-1 ${paymentMethod === 'cash' ? 'bg-orange-600' : ''}`}
+                                            onClick={() => setPaymentMethod('cash')}
+                                        >
+                                            <Banknote className="size-5" />
+                                            <span className="text-[9px] font-bold">CASH</span>
+                                        </Button>
+                                        <Button
+                                            variant={paymentMethod === 'mobile_money' ? 'default' : 'outline'}
+                                            className={`h-14 flex-col gap-1 ${paymentMethod === 'mobile_money' ? 'bg-orange-600' : ''}`}
+                                            onClick={() => setPaymentMethod('mobile_money')}
+                                        >
+                                            <Smartphone className="size-5" />
+                                            <span className="text-[9px] font-bold uppercase">MOB MONEY</span>
+                                        </Button>
+                                        <Button
+                                            variant={paymentMethod === 'card' ? 'default' : 'outline'}
+                                            className={`h-14 flex-col gap-1 ${paymentMethod === 'card' ? 'bg-orange-600' : ''}`}
+                                            onClick={() => setPaymentMethod('card')}
+                                        >
+                                            <CreditCard className="size-5" />
+                                            <span className="text-[9px] font-bold">CARTE</span>
+                                        </Button>
+                                    </div>
+
+                                    {paymentMethod === 'mobile_money' && (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Référence Transaction</label>
+                                            <Input
+                                                placeholder="Ex: PP2304..."
+                                                className="h-10 text-sm font-mono"
+                                                value={paymentReference}
+                                                onChange={(e) => setPaymentReference(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        className="w-full h-12 font-black bg-orange-600 hover:bg-orange-700 text-white"
+                                        disabled={isPaying || (paymentMethod === 'mobile_money' && !paymentReference)}
+                                        onClick={handlePayment}
+                                    >
+                                        {isPaying ? (
+                                            <><Loader2 className="size-4 mr-2 animate-spin" /> Traitement...</>
+                                        ) : (
+                                            <><CheckCircle2 className="size-5 mr-2" /> Confirmer le Paiement de {Number(viewingInvoice.patientAmount).toLocaleString()} FBU</>
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </DialogContent>

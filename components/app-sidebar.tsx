@@ -91,6 +91,7 @@ const pharmacyNav = [
   { title: "Ventes", href: "/pharmacy/sales", icon: Pill },
   { title: "Achats", href: "/pharmacy/purchases", icon: ShoppingBag },
   { title: "Stock", href: "/pharmacy/stock", icon: Package },
+  { title: "Inventaire", href: "/inventory", icon: Boxes },
   { title: "Mouvements", href: "/pharmacy/movements", icon: History },
   { title: "Catalogue", href: "/pharmacy/medicines", icon: Boxes },
   { title: "Catégories", href: "/pharmacy/categories", icon: Tags },
@@ -108,7 +109,7 @@ const NAV_GROUPS = [
   { label: "Insurance", items: insuranceNav },
   { label: "Billing", items: billingNav },
   { label: "Pharmacy", items: pharmacyNav },
-  { label: "Finance", items: financeNav },
+  // { label: "Finance", items: financeNav },
   { label: "System", items: parametrageNav },
 ]
 

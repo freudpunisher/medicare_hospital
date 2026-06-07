@@ -32,6 +32,10 @@ export const InvoiceA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>(({ inv
                             <p>Africana House (en face de la permanence nationale du CNDD-FDD)</p>
                             <p>Kigobe, Boulevard Mwambutsa, Bujumbura</p>
                             <p>Contact: +257 22 22 00 00 | contact@medico-dentaire.bi</p>
+                            <p className="mt-2 pt-2 border-t border-slate-200">
+                                Forme juridique: SURL | RC: 00734372/25
+                            </p>
+                            <p>Centre fiscal: DPMC</p>
                         </div>
                     </div>
                 </div>
@@ -50,7 +54,7 @@ export const InvoiceA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>(({ inv
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 underline underline-offset-4">Patient</h3>
                     <p className="text-lg font-bold text-slate-900 uppercase">{invoice.patient.firstName} {invoice.patient.lastName}</p>
                     <p className="text-sm text-slate-600">Genre: {invoice.patient.gender === 'male' ? 'Homme' : 'Femme'}</p>
-                    <p className="text-sm text-slate-600">ID Patient: {invoice.patient.id.slice(0, 8)}</p>
+                    <p className="text-sm text-slate-600">ID Patient: #{invoice.patient.patientNumber}</p>
                 </div>
                 <div>
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 underline underline-offset-4">Détails Assurance</h3>

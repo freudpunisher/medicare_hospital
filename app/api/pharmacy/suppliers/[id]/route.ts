@@ -29,7 +29,7 @@ export async function PUT(
         if (!updated) return NextResponse.json({ error: "Supplier not found" }, { status: 404 })
         return NextResponse.json({ data: updated })
     } catch (error: any) {
-        if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 })
+        if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors.map((e: any) => e.message).join('. ') }, { status: 400 })
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }

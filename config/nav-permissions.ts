@@ -50,8 +50,13 @@ export const NAV_PERMISSIONS: NavPermission[] = [
     },
     {
         group: "System",
-        roles: ["admin"],
+        roles: ["admin", "user"],
     },
+    {
+        group: "Inventory",
+        roles: ["admin", "pharmacist", "cashier", "user"],
+    },
+
 ]
 
 /**

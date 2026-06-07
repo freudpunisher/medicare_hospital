@@ -99,7 +99,7 @@ export default function NewPurchasePage() {
                 await fetchSuppliers()
                 setSelectedSupplier(data.data.id)
             } else {
-                toast.error(data.error || "Erreur lors de la création")
+                toast.error(typeof data.error === 'string' ? data.error : "Erreur lors de la création")
             }
         } catch {
             toast.error("Erreur réseau")
@@ -148,7 +148,7 @@ export default function NewPurchasePage() {
                 router.push("/pharmacy/purchases")
             } else {
                 const data = await res.json()
-                toast.error(data.error || "Une erreur est survenue")
+                toast.error(typeof data.error === 'string' ? data.error : "Une erreur est survenue")
             }
         } catch (err) {
             toast.error("Erreur réseau")

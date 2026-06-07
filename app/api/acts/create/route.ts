@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { medicalActs } from '@/db/schema'
-import { desc, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 
 export async function POST(req: Request) {
   try {
@@ -16,19 +16,16 @@ export async function POST(req: Request) {
     }
 
     // Automatic Code Generation: ACT-001, ACT-002...
-    const lastAct = await db.select({ code: medicalActs.code })
+    const result = await db.select({
+      maxNum: sql<number>`MAX(CAST(SUBSTRING(${medicalActs.code}, 5) AS INTEGER))`
+    })
       .from(medicalActs)
-      .where(sql`code LIKE 'ACT-%'`)
-      .orderBy(desc(medicalActs.code))
-      .limit(1)
+      .where(sql`${medicalActs.code} ~ '^ACT-\\d+$'`)
 
     let nextCode = 'ACT-001'
-    if (lastAct.length > 0) {
-      const lastCode = lastAct[0].code
-      const lastNum = parseInt(lastCode.split('-')[1])
-      if (!isNaN(lastNum)) {
-        nextCode = `ACT-${(lastNum + 1).toString().padStart(3, '0')}`
-      }
+    const maxNum = result[0]?.maxNum
+    if (maxNum != null) {
+      nextCode = `ACT-${(maxNum + 1).toString().padStart(3, '0')}`
     }
 
     const [newAct] = await db.insert(medicalActs).values({

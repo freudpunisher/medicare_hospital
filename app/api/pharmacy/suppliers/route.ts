@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         const [newSupplier] = await db.insert(suppliers).values(validated).returning()
         return NextResponse.json({ data: newSupplier })
     } catch (error: any) {
-        if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 })
+        if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors.map((e: any) => e.message).join('. ') }, { status: 400 })
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }

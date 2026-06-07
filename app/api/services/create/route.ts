@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { services } from '@/db/schema'
-import { desc, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 
 export async function POST(req: Request) {
     try {
@@ -16,19 +16,16 @@ export async function POST(req: Request) {
         }
 
         // Automatic Code Generation: SVC-001, SVC-002...
-        const lastService = await db.select({ code: services.code })
+        const result = await db.select({
+            maxNum: sql<number>`MAX(CAST(SUBSTRING(${services.code}, 5) AS INTEGER))`
+        })
             .from(services)
-            .where(sql`code LIKE 'SVC-%'`)
-            .orderBy(desc(services.code))
-            .limit(1)
+            .where(sql`${services.code} ~ '^SVC-\\d+$'`)
 
         let nextCode = 'SVC-001'
-        if (lastService.length > 0) {
-            const lastCode = lastService[0].code
-            const lastNum = parseInt(lastCode.split('-')[1])
-            if (!isNaN(lastNum)) {
-                nextCode = `SVC-${(lastNum + 1).toString().padStart(3, '0')}`
-            }
+        const maxNum = result[0]?.maxNum
+        if (maxNum != null) {
+            nextCode = `SVC-${(maxNum + 1).toString().padStart(3, '0')}`
         }
 
         const [newService] = await db.insert(services).values({

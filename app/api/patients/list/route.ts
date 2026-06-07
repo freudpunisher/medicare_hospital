@@ -22,6 +22,7 @@ export async function GET(req: Request) {
           like(patients.firstName, `%${search}%`),
           like(patients.lastName, `%${search}%`),
           like(patients.phone, `%${search}%`),
+          like(sql`CAST(${patients.id} AS TEXT)`, `%${search}%`),
           like(sql`CAST(${patients.patientNumber} AS TEXT)`, `%${search}%`)
         )
       )

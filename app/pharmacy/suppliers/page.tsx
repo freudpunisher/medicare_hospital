@@ -103,7 +103,7 @@ export default function SuppliersPage() {
                 fetchSuppliers()
             } else {
                 const error = await res.json()
-                toast.error(error.error || "Une erreur est survenue")
+                toast.error(typeof error.error === 'string' ? error.error : "Une erreur est survenue")
             }
         } catch (err) {
             toast.error("Erreur réseau")

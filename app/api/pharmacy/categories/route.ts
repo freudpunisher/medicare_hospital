@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         const [newCategory] = await db.insert(medicineCategories).values(validated).returning()
         return NextResponse.json({ data: newCategory })
     } catch (error: any) {
-        if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors }, { status: 400 })
+        if (error instanceof z.ZodError) return NextResponse.json({ error: error.errors.map((e: any) => e.message).join('. ') }, { status: 400 })
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }
