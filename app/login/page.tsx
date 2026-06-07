@@ -72,11 +72,11 @@ export default function LoginPage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <label className="inline-flex items-center gap-2 text-sm">
+            {/* <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4 text-blue-600" />
               <span className="text-slate-600 dark:text-slate-300">Remember me</span>
             </label>
-            <a href="#" className="text-sm text-blue-600 hover:underline">Forgot password?</a>
+            <a href="#" className="text-sm text-blue-600 hover:underline"></a> */}
           </div>
 
           <div>
@@ -89,7 +89,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center text-sm text-slate-500 dark:text-slate-400">Don't have an account? <a href="#" className="text-blue-600 hover:underline">Contact administrator</a></div>
+
         </form>
       </div>
     </main>
