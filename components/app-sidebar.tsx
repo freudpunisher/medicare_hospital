@@ -1,34 +1,9 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Users,
-  Building2,
-  Stethoscope,
-  Layers,
-  Activity,
-  UserCog,
-  Shield,
-  ScrollText,
-  Receipt,
-  Landmark,
-  Clock,
-  CreditCard,
-  ArrowDownCircle,
-  BookOpen,
-  BarChart3,
-  Heart,
-  Settings,
-  Pill,
-  Package,
-  ShoppingBag,
-  History,
-  Tags,
-  Boxes,
-  Truck,
-} from "lucide-react"
+import * as Icons from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -42,101 +17,48 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { canAccessGroup } from "@/config/nav-permissions"
+import { canAccessGroup, NAV_GROUPS_CONFIG } from "@/config/nav-permissions"
 import { useCurrentUser } from "@/hooks/use-current-user"
-
-// ─── Nav Definitions ─────────────────────────────────────────────────────────
-// To add a new section: 1) add items here, 2) add to NAV_GROUPS below,
-// 3) add permissions in config/nav-permissions.ts
-
-const mainNav = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
-  { title: "Patients", href: "/patients", icon: Users },
-  // { title: "Doctors", href: "/doctors", icon: UserCog },
-]
-
-const clinicalNav = [
-  { title: "Departments", href: "/departments", icon: Building2 },
-  { title: "Specialties", href: "/specialties", icon: Stethoscope },
-  { title: "Services", href: "/services", icon: Layers },
-  { title: "Medical Acts", href: "/acts", icon: Activity },
-]
-
-const insuranceNav = [
-  { title: "Assurances", href: "/insurances", icon: Shield },
-  // { title: "Bordereaux", href: "/insurances/claims", icon: ScrollText },
-  // { title: "Règlements", href: "/insurances/payments", icon: History },
-]
-
-const billingNav = [
-  { title: "Facturation", href: "/billing", icon: CreditCard },
-  { title: "Factures", href: "/billing/invoices", icon: Receipt },
-  { title: "Rapports", href: "/billing/reports", icon: BarChart3 },
-]
-
-const financeNav = [
-  { title: "Cash Register", href: "/cash-register", icon: Landmark },
-  { title: "Cash Sessions", href: "/cash-sessions", icon: Clock },
-  { title: "Payments", href: "/payments", icon: CreditCard },
-  { title: "Expenses", href: "/expenses", icon: ArrowDownCircle },
-  { title: "Accounting Journal", href: "/accounting-journal", icon: BookOpen },
-  { title: "Financial Reports", href: "/financial-reports", icon: BarChart3 },
-]
-
-const parametrageNav = [
-  { title: "Parametrage", href: "/parametrage", icon: Settings },
-]
-
-const pharmacyNav = [
-  { title: "Ventes", href: "/pharmacy/sales", icon: Pill },
-  { title: "Achats", href: "/pharmacy/purchases", icon: ShoppingBag },
-  { title: "Stock", href: "/pharmacy/stock", icon: Package },
-  { title: "Inventaire", href: "/inventory", icon: Boxes },
-  { title: "Mouvements", href: "/pharmacy/movements", icon: History },
-  { title: "Catalogue", href: "/pharmacy/medicines", icon: Boxes },
-  { title: "Catégories", href: "/pharmacy/categories", icon: Tags },
-  { title: "Fournisseurs", href: "/pharmacy/suppliers", icon: Truck },
-  { title: "Rapports", href: "/pharmacy/reports", icon: BarChart3 },
-]
-
-/**
- * NAV_GROUPS ties each group label to its items.
- * The label must match the key in NAV_PERMISSIONS in config/nav-permissions.ts
- */
-const NAV_GROUPS = [
-  { label: "Overview", items: mainNav },
-  { label: "Clinical", items: clinicalNav },
-  { label: "Insurance", items: insuranceNav },
-  { label: "Billing", items: billingNav },
-  { label: "Pharmacy", items: pharmacyNav },
-  // { label: "Finance", items: financeNav },
-  { label: "System", items: parametrageNav },
-]
 
 // ─── Components ──────────────────────────────────────────────────────────────
 
-function NavGroup({ label, items }: { label: string; items: typeof mainNav }) {
+function NavGroup({
+  label,
+  items,
+  checkAccess
+}: {
+  label: string;
+  items: any[];
+  checkAccess: (label: string, itemTitle?: string) => boolean
+}) {
   const pathname = usePathname()
+
+  // Filter items based on access
+  const visibleItems = items.filter(item => checkAccess(label, item.title))
+  if (visibleItems.length === 0) return null
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.href}
-                tooltip={item.title}
-              >
-                <Link href={item.href}>
-                  <item.icon className="size-4" />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {visibleItems.map((item) => {
+            const IconComponent = (Icons as any)[item.iconName] || Icons.HelpCircle
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === item.href}
+                  tooltip={item.title}
+                >
+                  <Link href={item.href}>
+                    <IconComponent className="size-4" />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -146,13 +68,58 @@ function NavGroup({ label, items }: { label: string; items: typeof mainNav }) {
 export function AppSidebar() {
   const { user, loading } = useCurrentUser()
   const role = user?.role ?? "user"
+  const [dbPermissions, setDbPermissions] = useState<Record<string, string[] | "*">>({})
+  const [loadingPerms, setLoadingPerms] = useState(true)
+
+  useEffect(() => {
+    async function fetchPerms() {
+      try {
+        const res = await fetch("/api/system/permissions")
+        const json = await res.json()
+        if (res.ok) {
+          const mapping: Record<string, string[] | "*"> = {}
+          json.data.forEach((p: any) => {
+            mapping[p.group] = p.roles === "*" ? "*" : p.roles.split(",")
+          })
+          setDbPermissions(mapping)
+        }
+      } catch (err) {
+        console.error("Failed to fetch menu permissions", err)
+      } finally {
+        setLoadingPerms(false)
+      }
+    }
+    fetchPerms()
+  }, [])
+
+  function checkAccess(groupLabel: string, itemTitle?: string) {
+    const key = itemTitle ? `${groupLabel}:${itemTitle}` : groupLabel
+
+    // If we have DB permissions for this exact key, use them
+    if (dbPermissions[key]) {
+      const perms = dbPermissions[key]
+      if (perms === "*") return true
+      return perms.includes(role)
+    }
+
+    // Special case: if we are checking an item and it has no DB record, 
+    // it defaults to the group permission or static config.
+    if (itemTitle) {
+      // Just return true for items if no specific record exists (defaulting to group perms)
+      // because the group filtering happens at the parent.
+      return true
+    }
+
+    // Fallback for Groups only
+    return canAccessGroup(groupLabel, role)
+  }
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader className="px-3 py-4">
         <Link href="/" className="flex items-center gap-2 px-1">
           <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Heart className="size-4 text-sidebar-primary-foreground" />
+            <Icons.Heart className="size-4 text-sidebar-primary-foreground" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold text-sidebar-foreground">MediCore</span>
@@ -162,10 +129,10 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {!loading &&
-          NAV_GROUPS.filter(({ label }) => canAccessGroup(label, role)).map(
+        {(!loading && !loadingPerms) &&
+          NAV_GROUPS_CONFIG.filter(({ label }) => checkAccess(label)).map(
             ({ label, items }) => (
-              <NavGroup key={label} label={label} items={items} />
+              <NavGroup key={label} label={label} items={items} checkAccess={checkAccess} />
             )
           )}
       </SidebarContent>

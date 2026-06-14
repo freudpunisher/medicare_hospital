@@ -379,7 +379,7 @@ function LocationTable({
     if (title === 'Zones') parentId = selectedCommune
     if (title === 'Quartiers') parentId = selectedZone
 
-    if (title !== 'Provinces' && !parentId) {
+    if (title !== 'Provinces' && title !== 'Quartiers' && !parentId) {
       toast.error('Please select the parent administrative level')
       return
     }

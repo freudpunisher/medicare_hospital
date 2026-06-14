@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Plus } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Loader2 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,162 +32,225 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PageHeader } from "@/components/page-header"
-import { expenses as initialExpenses, cashSessions } from "@/lib/mock-data"
 import { toast } from "sonner"
 
-type Expense = (typeof initialExpenses)[number]
+interface Expense {
+  id: string
+  description: string
+  amount: string
+  category: string
+  createdAt: string
+  cashSessionId?: string | null
+}
 
-const categories = ["Supplies", "Maintenance", "Services", "Medical", "Utilities", "Other"]
+const categories = ["Consommables", "Maintenance", "Services", "Médical", "Utilities", "Divers"]
 
 export default function ExpensesPage() {
-  const [data, setData] = useState<Expense[]>(initialExpenses)
+  const [data, setData] = useState<Expense[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(false)
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [form, setForm] = useState({
     description: "",
-    amount: 0,
-    category: "Supplies",
-    expense_date: new Date().toISOString().split("T")[0],
-    recorded_by: "",
-    cash_session_id: "",
+    amount: "",
+    category: "Consommables",
+    cashSessionId: "",
   })
 
-  const openSessions = cashSessions.filter((s) => s.status === "open")
-  const filtered =
-    filterCategory === "all"
-      ? data
-      : data.filter((e) => e.category === filterCategory)
+  useEffect(() => {
+    fetchExpenses()
+  }, [filterCategory])
 
-  const totalExpenses = filtered.reduce((sum, e) => sum + e.amount, 0)
-
-  function handleAdd() {
-    if (!form.description || !form.amount || !form.cash_session_id) return
-    const expense: Expense = {
-      id: `exp-${Date.now()}`,
-      ...form,
+  async function fetchExpenses() {
+    setLoading(true)
+    try {
+      const url = `/api/finance/expenses?category=${filterCategory}`
+      const res = await fetch(url)
+      const json = await res.json()
+      if (res.ok) {
+        setData(json.data)
+      }
+    } catch (err) {
+      toast.error("Erreur de chargement")
+    } finally {
+      setLoading(false)
     }
-    setData((prev) => [expense, ...prev])
-    setOpen(false)
-    setForm({ description: "", amount: 0, category: "Supplies", expense_date: new Date().toISOString().split("T")[0], recorded_by: "", cash_session_id: "" })
-    toast.success("Expense recorded")
+  }
+
+  const totalExpenses = data.reduce((sum, e) => sum + parseFloat(e.amount), 0)
+
+  async function handleAdd() {
+    if (!form.description || !form.amount) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/finance/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          amount: parseFloat(form.amount)
+        })
+      })
+      if (res.ok) {
+        toast.success("Dépense enregistrée")
+        setOpen(false)
+        setForm({ description: "", amount: "", category: "Consommables", cashSessionId: "" })
+        fetchExpenses()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Erreur lors de l'enregistrement")
+      }
+    } catch (err) {
+      toast.error("Erreur réseau")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader title="Expenses" description="Track operational expenses">
-        <div className="flex items-center gap-2">
+    <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+      <PageHeader title="Dépenses Opérationnelles" description="Suivi des charges et décaissements de l'hôpital">
+        <div className="flex items-center gap-3">
           <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[150px] h-9">
+            <SelectTrigger className="w-[180px] h-10 rounded-full border-muted bg-white font-bold text-xs uppercase tracking-widest">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+            <SelectContent className="rounded-2xl border-none shadow-2xl">
+              <SelectItem value="all" className="font-bold">Toutes Catégories</SelectItem>
               {categories.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="size-4 mr-1" />Record Expense</Button>
+              <Button className="rounded-full h-10 px-6 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                <Plus className="size-4 mr-2" />Nouvelle Dépense
+              </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Record Expense</DialogTitle>
-                <DialogDescription>Enter expense details.</DialogDescription>
+            <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden bg-white">
+              <DialogHeader className="p-8 bg-primary text-primary-foreground">
+                <DialogTitle className="text-xl font-black uppercase tracking-tight">Enregistrer une Dépense</DialogTitle>
+                <DialogDescription className="text-primary-foreground/70 font-bold text-[10px] uppercase tracking-widest mt-1">
+                  Saisissez les détails de la sortie de caisse
+                </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+
+              <div className="p-8 space-y-4">
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Description</Label>
+                  <Input
+                    placeholder="Ex: Achat de fournitures de bureau"
+                    className="h-12 rounded-2xl border-muted bg-muted/20 font-bold focus-visible:ring-primary"
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount ($)</Label>
-                    <Input type="number" min={0} step={0.01} value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Montant (FBU)</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      className="h-12 rounded-2xl border-muted bg-muted/20 font-bold focus-visible:ring-primary"
+                      value={form.amount}
+                      onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Catégorie</Label>
                     <Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
+                      <SelectTrigger className="h-12 rounded-2xl border-muted bg-muted/20 font-bold focus:ring-primary">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-none shadow-2xl">
                         {categories.map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                          <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Recorded By</Label>
-                    <Input value={form.recorded_by} onChange={(e) => setForm((f) => ({ ...f, recorded_by: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cash Session</Label>
-                  <Select value={form.cash_session_id} onValueChange={(v) => setForm((f) => ({ ...f, cash_session_id: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select session" /></SelectTrigger>
-                    <SelectContent>
-                      {openSessions.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.opened_by} - {s.id}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={handleAdd}>Record Expense</Button>
+
+              <DialogFooter className="p-6 bg-muted/30 border-t border-muted/50 gap-3">
+                <Button variant="ghost" className="rounded-full font-black uppercase text-[10px] tracking-widest" onClick={() => setOpen(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  className="rounded-full font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20"
+                  onClick={handleAdd}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="size-4 animate-spin mr-2" /> : "Enregistrer"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </PageHeader>
 
-      {/* Total Card */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Total Expenses (filtered)</span>
-            <span className="text-lg font-bold text-foreground">
-              ${totalExpenses.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-            </span>
+      {/* KPI Card */}
+      <Card className="rounded-[2rem] border-none shadow-sm bg-gradient-to-br from-primary to-primary/80 text-primary-foreground overflow-hidden">
+        <CardContent className="p-6 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total des Dépenses (Période Actuelle)</p>
+            <h2 className="text-3xl font-black tracking-tight">
+              {totalExpenses.toLocaleString("fr-FR")}
+              <span className="text-xs ml-2 opacity-80 uppercase italic">FBU</span>
+            </h2>
+          </div>
+          <div className="size-12 rounded-2xl bg-white/20 flex items-center justify-center">
+            <Badge className="bg-white text-primary rounded-full px-3 font-black text-[10px]">{data.length} Opérations</Badge>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-[2.5rem] border-none shadow-sm overflow-hidden bg-card/60 backdrop-blur-xl">
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Recorded By</TableHead>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="border-muted/50">
+                <TableHead className="pl-8 font-black text-[9px] uppercase tracking-widest text-muted-foreground">Date</TableHead>
+                <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground">Description</TableHead>
+                <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground">Catégorie</TableHead>
+                <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground text-right pr-8">Montant</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell className="font-medium text-foreground">{expense.description}</TableCell>
-                  <TableCell className="font-semibold text-destructive">
-                    -${expense.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-64 text-center">
+                    <Loader2 className="size-8 animate-spin mx-auto text-primary opacity-20" />
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-xs">{expense.category}</Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{expense.expense_date}</TableCell>
-                  <TableCell className="text-muted-foreground">{expense.recorded_by}</TableCell>
                 </TableRow>
-              ))}
+              ) : data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-64 text-center text-muted-foreground font-bold italic opacity-30">
+                    Aucune dépense enregistrée
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((expense) => (
+                  <TableRow key={expense.id} className="border-muted/50 hover:bg-white/50 transition-colors">
+                    <TableCell className="pl-8 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      {new Date(expense.createdAt).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell className="font-black text-foreground text-sm uppercase tracking-tight">{expense.description}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-muted/40 border-none px-2 py-0.5">
+                        {expense.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right pr-8 font-black text-sm text-destructive">
+                      -{parseFloat(expense.amount).toLocaleString("fr-FR")} FBU
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

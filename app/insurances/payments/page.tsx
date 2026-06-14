@@ -44,6 +44,7 @@ interface Payment {
   id: string
   amount: string
   paymentDate: string
+  paymentMethod: string
   referenceNumber: string | null
   notes: string | null
   createdAt: string
@@ -54,7 +55,11 @@ interface Payment {
   claim: {
     id: string
     status: string
-  }
+  } | null
+  batch: {
+    id: string
+    batchNumber: string
+  } | null
 }
 
 export default function InsurancePaymentsPage() {
@@ -183,7 +188,14 @@ export default function InsurancePaymentsPage() {
                         <CreditCard className="size-3 text-muted-foreground" />
                         <span className="text-xs font-black text-foreground">Ref: {p.referenceNumber || 'N/A'}</span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground uppercase opacity-60">ID Bordereau: {p.claim.id.slice(0, 8)}</span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[8px] font-black uppercase bg-primary/5 border-none px-1.5 py-0 text-primary">
+                          {p.paymentMethod === 'transfer' ? 'Virement' : p.paymentMethod === 'check' ? 'Chèque' : p.paymentMethod === 'cash' ? 'Espèces' : 'Carte'}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground uppercase opacity-60 font-medium">
+                          Bordereau: {p.batch?.batchNumber || p.claim?.id.slice(0, 8)}
+                        </span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -196,7 +208,7 @@ export default function InsurancePaymentsPage() {
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className="bg-success/10 text-success border-success/20 uppercase text-[9px] font-black px-3 py-1 rounded-full">
-                      {p.claim.status}
+                      {p.claim?.status || 'VALIDÉ'}
                     </Badge>
                   </TableCell>
                   <TableCell className="pr-8 text-right">

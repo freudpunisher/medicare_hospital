@@ -28,8 +28,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { name, zoneId } = await req.json()
-    if (!name || !zoneId) return NextResponse.json({ error: 'Name and zoneId are required' }, { status: 400 })
-    const [newQuartier] = await db.insert(quartiers).values({ name, zoneId }).returning()
+    if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    const [newQuartier] = await db.insert(quartiers).values({ name, ...(zoneId ? { zoneId } : {}) }).returning()
     return NextResponse.json(newQuartier)
   } catch (error) {
     console.error('Failed to create quartier:', error)

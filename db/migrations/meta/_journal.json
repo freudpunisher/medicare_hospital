@@ -29,6 +29,20 @@
       "when": 1780242957483,
       "tag": "0003_soft_amphibian",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781347293717,
+      "tag": "0004_add_patient_number_to_patients",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0005_add_menu_permissions_table",
+      "breakpoints": true
     }
   ]
 }

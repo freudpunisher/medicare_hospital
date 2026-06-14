@@ -193,6 +193,22 @@ export const users = pgTable(
 )
 
 // ============================================================
+// MENU PERMISSIONS TABLE
+// ============================================================
+export const menuPermissions = pgTable(
+  'menu_permissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    group: varchar('group', { length: 255 }).notNull().unique(), // e.g. "Clinical"
+    roles: text('roles').notNull().default('*'), // Stores "admin,user" or "*"
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    groupIdx: index('menu_permissions_group_idx').on(table.group),
+  })
+)
+
+// ============================================================
 // SESSIONS TABLE
 // ============================================================
 export const sessions = pgTable(
@@ -288,12 +304,38 @@ export const insuranceServiceRules = pgTable(
 )
 
 // ============================================================
+// INSURANCE BATCHES (BORDEREAUX) TABLE
+// ============================================================
+export const insuranceBatches = pgTable(
+  'insurance_batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    insuranceId: uuid('insurance_id')
+      .notNull()
+      .references(() => insurances.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    batchNumber: varchar('batch_number', { length: 50 }).notNull().unique(),
+    status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, submitted, paid
+    totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+    submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+    paidAt: timestamp('paid_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    insuranceIdIdx: index('insurance_batches_insurance_id_idx').on(table.insuranceId),
+    statusIdx: index('insurance_batches_status_idx').on(table.status),
+  })
+)
+
+// ============================================================
 // INSURANCE CLAIMS TABLE
 // ============================================================
 export const insuranceClaims = pgTable(
   'insurance_claims',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    batchId: uuid('batch_id')
+      .references(() => insuranceBatches.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     insuranceId: uuid('insurance_id')
       .notNull()
       .references(() => insurances.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
@@ -302,6 +344,7 @@ export const insuranceClaims = pgTable(
       .references(() => patients.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     invoiceId: uuid('invoice_id')
       .notNull()
+      .unique() // An invoice cannot be in multiple claims
       .references(() => invoices.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     status: varchar('status', { length: 20 }).notNull().default('pending'),
     claimAmount: decimal('claim_amount', { precision: 10, scale: 2 }).notNull(),
@@ -313,6 +356,7 @@ export const insuranceClaims = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
+    batchIdIdx: index('insurance_claims_batch_id_idx').on(table.batchId),
     insuranceIdIdx: index('insurance_claims_insurance_id_idx').on(table.insuranceId),
     patientIdIdx: index('insurance_claims_patient_id_idx').on(table.patientId),
     invoiceIdIdx: index('insurance_claims_invoice_id_idx').on(table.invoiceId),
@@ -329,10 +373,13 @@ export const insurancePayments = pgTable(
     insuranceId: uuid('insurance_id')
       .notNull()
       .references(() => insurances.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-    claimId: uuid('claim_id')
+    batchId: uuid('batch_id')
       .notNull()
-      .references(() => insuranceClaims.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+      .references(() => insuranceBatches.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    claimId: uuid('claim_id')
+      .references(() => insuranceClaims.id, { onDelete: 'set null', onUpdate: 'cascade' }),
     amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+    paymentMethod: varchar('payment_method', { length: 50 }).notNull().default('transfer'), // cash, card, check, transfer
     paymentDate: timestamp('payment_date').notNull().defaultNow(),
     referenceNumber: varchar('reference_number', { length: 100 }),
     notes: text('notes'),
@@ -359,6 +406,7 @@ export const invoices = pgTable(
     totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
     visitId: uuid('visit_id').references(() => visits.id),
     insuranceAmount: decimal('insurance_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+    insurancePaidAmount: decimal('insurance_paid_amount', { precision: 10, scale: 2 }).notNull().default('0'),
     patientAmount: decimal('patient_amount', { precision: 10, scale: 2 }).notNull(),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).notNull().default('0'),
     status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, paid, partial, cancelled
@@ -435,6 +483,7 @@ export const cashRegister = pgTable(
     description: text('description'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    assignedToUserId: uuid('assigned_to_user_id').references(() => users.id, { onDelete: 'set null', onUpdate: 'cascade' }),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
@@ -457,8 +506,10 @@ export const cashSessions = pgTable(
     totalIncome: decimal('total_income', { precision: 10, scale: 2 }).notNull().default('0'),
     totalExpenses: decimal('total_expenses', { precision: 10, scale: 2 }).notNull().default('0'),
     status: varchar('status', { length: 20 }).notNull().default('open'), // open, closed
-    openedAt: timestamp('opened_at').notNull().defaultNow(),
-    closedAt: timestamp('closed_at'),
+    openedBy: uuid('opened_by').notNull().references(() => users.id),
+    closedBy: uuid('closed_by').references(() => users.id),
+    expectedBalance: decimal('expected_balance', { precision: 10, scale: 2 }).notNull().default('0'),
+    physicalBalance: decimal('physical_balance', { precision: 10, scale: 2 }),
     notes: text('notes'),
   },
   (table) => ({
@@ -631,7 +682,7 @@ export const quartiers = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 150 }).notNull(),
-    zoneId: uuid('zone_id').notNull().references(() => zones.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    zoneId: uuid('zone_id').references(() => zones.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (table) => ({
@@ -1031,7 +1082,20 @@ export const servicesRelations = relations(services, ({ many }) => ({
   rules: many(insuranceServiceRules),
 }))
 
+export const insuranceBatchesRelations = relations(insuranceBatches, ({ one, many }) => ({
+  insurance: one(insurances, {
+    fields: [insuranceBatches.insuranceId],
+    references: [insurances.id],
+  }),
+  claims: many(insuranceClaims),
+  payments: many(insurancePayments),
+}))
+
 export const insuranceClaimsRelations = relations(insuranceClaims, ({ one, many }) => ({
+  batch: one(insuranceBatches, {
+    fields: [insuranceClaims.batchId],
+    references: [insuranceBatches.id],
+  }),
   insurance: one(insurances, {
     fields: [insuranceClaims.insuranceId],
     references: [insurances.id],
@@ -1051,6 +1115,10 @@ export const insurancePaymentsRelations = relations(insurancePayments, ({ one })
   insurance: one(insurances, {
     fields: [insurancePayments.insuranceId],
     references: [insurances.id],
+  }),
+  batch: one(insuranceBatches, {
+    fields: [insurancePayments.batchId],
+    references: [insuranceBatches.id],
   }),
   claim: one(insuranceClaims, {
     fields: [insurancePayments.claimId],
