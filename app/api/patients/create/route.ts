@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { patients, patientInsurances } from '@/db/schema'
+import { patients, patientInsurances, corporateEmployees } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export async function POST(req: Request) {
   try {
@@ -13,12 +14,24 @@ export async function POST(req: Request) {
       phone,
       address,
       quartierId,
+      isCorporateEmployee = false,
+      corporatePartnerId,
+      employeeNumber,
+      department,
+      position,
+      hireDate,
       // Multiple insurances support
       insurances = [],
     } = body
 
     if (!firstName || !lastName || !dateOfBirth || !gender || !phone) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    if (isCorporateEmployee) {
+      if (!corporatePartnerId || !employeeNumber) {
+        return NextResponse.json({ error: 'Missing required corporate employee fields: corporatePartnerId, employeeNumber' }, { status: 400 })
+      }
     }
 
     // Determine if the patient is considered insured overall
@@ -43,6 +56,8 @@ export async function POST(req: Request) {
         address: address ?? null,
         quartierId: quartierId ?? null,
         isInsured: hasActiveInsurance,
+        isCorporateEmployee,
+        corporatePartnerId: corporatePartnerId ?? null,
         // Legacy fields mapping
         insuranceId: primaryInsurance?.insuranceId ?? null,
         insuranceNumber: primaryInsurance?.insuranceNumber ?? null,
@@ -51,6 +66,28 @@ export async function POST(req: Request) {
       .returning()
 
     const patient = created[0]
+
+    // Create corporate employee if applicable
+    if (isCorporateEmployee && patient) {
+      const [employee] = await db
+        .insert(corporateEmployees)
+        .values({
+          partnerId: corporatePartnerId,
+          patientId: patient.id,
+          employeeNumber,
+          department: department ?? null,
+          position: position ?? null,
+          hireDate: hireDate ? new Date(hireDate) : null,
+        })
+        .returning()
+
+      await db
+        .update(patients)
+        .set({ corporateEmployeeId: employee.id })
+        .where(eq(patients.id, patient.id))
+
+      patient.corporateEmployeeId = employee.id
+    }
 
     // Save all insurances to the new join table
     if (insurances.length > 0) {

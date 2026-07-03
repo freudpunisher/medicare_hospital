@@ -133,6 +133,11 @@ export const patients = pgTable(
     insuranceExpiryDate: varchar('insurance_expiry_date', { length: 10 }),
     insuranceCardNumber: varchar('insurance_card_number', { length: 100 }).unique(),
     coverageRate: decimal('coverage_rate', { precision: 5, scale: 2 }).notNull().default('0'),
+    isCorporateEmployee: boolean('is_corporate_employee').notNull().default(false),
+    corporatePartnerId: uuid('corporate_partner_id')
+      .references(() => corporatePartners.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+    corporateEmployeeId: uuid('corporate_employee_id')
+      .references(() => (corporateEmployees as any).id, { onDelete: 'set null', onUpdate: 'cascade' }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -1002,6 +1007,196 @@ export const pharmacySaleItems = pgTable(
 )
 
 // ============================================================
+// CORPORATE PARTNERS / COMPANIES TABLE
+// ============================================================
+export const corporatePartners = pgTable(
+  'corporate_partners',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyName: varchar('company_name', { length: 255 }).notNull().unique(),
+    registrationNumber: varchar('registration_number', { length: 100 }).unique(),
+    taxId: varchar('tax_id', { length: 100 }).unique(),
+    contactPerson: varchar('contact_person', { length: 255 }),
+    contactEmail: varchar('contact_email', { length: 255 }),
+    contactPhone: varchar('contact_phone', { length: 50 }),
+    address: text('address'),
+    website: varchar('website', { length: 255 }),
+    isActive: boolean('is_active').notNull().default(true),
+    // Partnership details
+    partnershipStartDate: timestamp('partnership_start_date').notNull(),
+    partnershipEndDate: timestamp('partnership_end_date'),
+    autoRenew: boolean('auto_renew').notNull().default(false),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    companyNameIdx: index('corporate_partners_company_name_idx').on(table.companyName),
+    isActiveIdx: index('corporate_partners_is_active_idx').on(table.isActive),
+  })
+)
+
+// ============================================================
+// CORPORATE EMPLOYEES TABLE
+// ============================================================
+export const corporateEmployees: any = pgTable(
+  'corporate_employees',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => corporatePartners.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => (patients as any).id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    employeeNumber: varchar('employee_number', { length: 100 }).notNull().unique(),
+    department: varchar('department', { length: 255 }),
+    position: varchar('position', { length: 255 }),
+    hireDate: timestamp('hire_date'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    partnerIdIdx: index('corporate_employees_partner_id_idx').on(table.partnerId),
+    patientIdIdx: index('corporate_employees_patient_id_idx').on(table.patientId),
+    employeeNumberIdx: index('corporate_employees_employee_number_idx').on(table.employeeNumber),
+  })
+)
+
+// ============================================================
+// PARTNERSHIP AGREEMENTS TABLE
+// ============================================================
+export const partnershipAgreements = pgTable(
+  'partnership_agreements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => corporatePartners.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    agreementNumber: varchar('agreement_number', { length: 100 }).notNull().unique(),
+    agreementType: varchar('agreement_type', { length: 50 }).notNull(), // 'discount', 'flat_rate', 'capped'
+    effectiveDate: timestamp('effective_date').notNull(),
+    expiryDate: timestamp('expiry_date'),
+    isActive: boolean('is_active').notNull().default(true),
+    // Global discount for all services (optional)
+    globalDiscountPercentage: decimal('global_discount_percentage', { precision: 5, scale: 2 }),
+    // Cap per visit or per year
+    maxDiscountPerVisit: decimal('max_discount_per_visit', { precision: 10, scale: 2 }),
+    maxDiscountPerYear: decimal('max_discount_per_year', { precision: 10, scale: 2 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    partnerIdIdx: index('partnership_agreements_partner_id_idx').on(table.partnerId),
+    agreementNumberIdx: index('partnership_agreements_agreement_number_idx').on(table.agreementNumber),
+    isActiveIdx: index('partnership_agreements_is_active_idx').on(table.isActive),
+  })
+)
+
+// ============================================================
+// PARTNERSHIP SERVICE RULES (Act-level reductions)
+// ============================================================
+export const partnershipServiceRules = pgTable(
+  'partnership_service_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => corporatePartners.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    agreementId: uuid('agreement_id')
+      .notNull()
+      .references(() => partnershipAgreements.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    // Target for reduction
+    serviceId: uuid('service_id')
+      .references(() => services.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    medicalActId: uuid('medical_act_id')
+      .references(() => medicalActs.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    specialtyId: uuid('specialty_id')
+      .references(() => specialties.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    // Reduction rules
+    reductionType: varchar('reduction_type', { length: 50 }).notNull(), // 'percentage', 'fixed_amount'
+    reductionValue: decimal('reduction_value', { precision: 10, scale: 2 }).notNull(),
+    // Optionally cap the reduction
+    maxReductionAmount: decimal('max_reduction_amount', { precision: 10, scale: 2 }),
+    minBillableAmount: decimal('min_billable_amount', { precision: 10, scale: 2 }).default('0'),
+    isActive: boolean('is_active').notNull().default(true),
+    priority: numeric('priority').notNull().default('1'), // Higher priority wins if multiple rules match
+    notes: text('notes'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    partnerIdIdx: index('partnership_service_rules_partner_id_idx').on(table.partnerId),
+    agreementIdIdx: index('partnership_service_rules_agreement_id_idx').on(table.agreementId),
+    serviceIdIdx: index('partnership_service_rules_service_id_idx').on(table.serviceId),
+    medicalActIdIdx: index('partnership_service_rules_medical_act_id_idx').on(table.medicalActId),
+  })
+)
+
+// ============================================================
+// PARTNERSHIP VISIT LOGS (Track actual usage)
+// ============================================================
+export const partnershipVisitLogs = pgTable(
+  'partnership_visit_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => corporatePartners.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => corporateEmployees.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    visitId: uuid('visit_id')
+      .notNull()
+      .references(() => visits.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    invoiceId: uuid('invoice_id')
+      .references(() => invoices.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+    // Track discounts applied
+    totalDiscountApplied: decimal('total_discount_applied', { precision: 10, scale: 2 }).notNull().default('0'),
+    originalTotal: decimal('original_total', { precision: 10, scale: 2 }).notNull(),
+    finalTotal: decimal('final_total', { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    partnerIdIdx: index('partnership_visit_logs_partner_id_idx').on(table.partnerId),
+    employeeIdIdx: index('partnership_visit_logs_employee_id_idx').on(table.employeeId),
+    visitIdIdx: index('partnership_visit_logs_visit_id_idx').on(table.visitId),
+  })
+)
+
+// ============================================================
+// PARTNERSHIP DISCOUNT HISTORY (Detailed breakdown)
+// ============================================================
+export const partnershipDiscountHistory = pgTable(
+  'partnership_discount_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    partnerId: uuid('partner_id')
+      .notNull()
+      .references(() => corporatePartners.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    invoiceItemId: uuid('invoice_item_id')
+      .notNull()
+      .references(() => invoiceItems.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    ruleId: uuid('rule_id')
+      .notNull()
+      .references(() => partnershipServiceRules.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    originalPrice: decimal('original_price', { precision: 10, scale: 2 }).notNull(),
+    discountedPrice: decimal('discounted_price', { precision: 10, scale: 2 }).notNull(),
+    discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).notNull(),
+    discountType: varchar('discount_type', { length: 50 }).notNull(),
+    discountValue: decimal('discount_value', { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    partnerIdIdx: index('partnership_discount_history_partner_id_idx').on(table.partnerId),
+    invoiceItemIdIdx: index('partnership_discount_history_invoice_item_id_idx').on(table.invoiceItemId),
+    ruleIdIdx: index('partnership_discount_history_rule_id_idx').on(table.ruleId),
+  })
+)
+
+// ============================================================
 // RELATIONS
 // ============================================================
 
@@ -1075,6 +1270,10 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   invoices: many(invoices),
   payments: many(payments),
   claims: many(insuranceClaims),
+  corporateEmployee: one(corporateEmployees, {
+    fields: [patients.corporateEmployeeId],
+    references: [corporateEmployees.id],
+  }),
 }))
 
 export const servicesRelations = relations(services, ({ many }) => ({
@@ -1277,4 +1476,88 @@ export const medicineLotsRelations = relations(medicineLots, ({ one, many }) => 
     references: [medicines.id],
   }),
   saleItems: many(pharmacySaleItems),
+}))
+
+export const corporatePartnersRelations = relations(corporatePartners, ({ many }) => ({
+  employees: many(corporateEmployees),
+  agreements: many(partnershipAgreements),
+  serviceRules: many(partnershipServiceRules),
+  visitLogs: many(partnershipVisitLogs),
+}))
+
+export const corporateEmployeesRelations = relations(corporateEmployees, ({ one, many }) => ({
+  partner: one(corporatePartners, {
+    fields: [corporateEmployees.partnerId],
+    references: [corporatePartners.id],
+  }),
+  patient: one(patients, {
+    fields: [corporateEmployees.patientId],
+    references: [patients.id],
+  }),
+  visitLogs: many(partnershipVisitLogs),
+}))
+
+export const partnershipAgreementsRelations = relations(partnershipAgreements, ({ one, many }) => ({
+  partner: one(corporatePartners, {
+    fields: [partnershipAgreements.partnerId],
+    references: [corporatePartners.id],
+  }),
+  serviceRules: many(partnershipServiceRules),
+}))
+
+export const partnershipServiceRulesRelations = relations(partnershipServiceRules, ({ one }) => ({
+  partner: one(corporatePartners, {
+    fields: [partnershipServiceRules.partnerId],
+    references: [corporatePartners.id],
+  }),
+  agreement: one(partnershipAgreements, {
+    fields: [partnershipServiceRules.agreementId],
+    references: [partnershipAgreements.id],
+  }),
+  service: one(services, {
+    fields: [partnershipServiceRules.serviceId],
+    references: [services.id],
+  }),
+  medicalAct: one(medicalActs, {
+    fields: [partnershipServiceRules.medicalActId],
+    references: [medicalActs.id],
+  }),
+  specialty: one(specialties, {
+    fields: [partnershipServiceRules.specialtyId],
+    references: [specialties.id],
+  }),
+}))
+
+export const partnershipVisitLogsRelations = relations(partnershipVisitLogs, ({ one }) => ({
+  partner: one(corporatePartners, {
+    fields: [partnershipVisitLogs.partnerId],
+    references: [corporatePartners.id],
+  }),
+  employee: one(corporateEmployees, {
+    fields: [partnershipVisitLogs.employeeId],
+    references: [corporateEmployees.id],
+  }),
+  visit: one(visits, {
+    fields: [partnershipVisitLogs.visitId],
+    references: [visits.id],
+  }),
+  invoice: one(invoices, {
+    fields: [partnershipVisitLogs.invoiceId],
+    references: [invoices.id],
+  }),
+}))
+
+export const partnershipDiscountHistoryRelations = relations(partnershipDiscountHistory, ({ one }) => ({
+  partner: one(corporatePartners, {
+    fields: [partnershipDiscountHistory.partnerId],
+    references: [corporatePartners.id],
+  }),
+  invoiceItem: one(invoiceItems, {
+    fields: [partnershipDiscountHistory.invoiceItemId],
+    references: [invoiceItems.id],
+  }),
+  rule: one(partnershipServiceRules, {
+    fields: [partnershipDiscountHistory.ruleId],
+    references: [partnershipServiceRules.id],
+  }),
 }))

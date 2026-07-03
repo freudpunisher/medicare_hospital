@@ -44,12 +44,18 @@ interface Quartier {
   zoneId: string
 }
 
+interface CorporatePartner {
+  id: string
+  companyName: string
+}
+
 function NewPatientContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect")
   const [loading, setLoading] = useState(false)
   const [insurancesList, setInsurancesList] = useState<Insurance[]>([])
+  const [corporatePartnersList, setCorporatePartnersList] = useState<CorporatePartner[]>([])
   const [provinces, setProvinces] = useState<Province[]>([])
   const [communes, setCommunes] = useState<Commune[]>([])
   const [quartiers, setQuartiers] = useState<Quartier[]>([])
@@ -71,11 +77,18 @@ function NewPatientContent() {
     address: "",
     quartierId: null as string | null,
     isInsured: false,
+    isCorporateEmployee: false,
+    corporatePartnerId: "",
+    employeeNumber: "",
+    department: "",
+    position: "",
+    hireDate: "",
   })
 
   useEffect(() => {
     fetchInsurances()
     fetchProvinces()
+    fetchCorporatePartners()
   }, [])
 
   useEffect(() => {
@@ -116,6 +129,16 @@ function NewPatientContent() {
       const res = await fetch("/api/insurances/list?active=true")
       const data = await res.json()
       if (res.ok) setInsurancesList(data.data || [])
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  async function fetchCorporatePartners() {
+    try {
+      const res = await fetch("/api/partners/list")
+      const data = await res.json()
+      if (res.ok) setCorporatePartnersList(data.data || [])
     } catch (err) {
       console.error(err)
     }
@@ -204,9 +227,23 @@ function NewPatientContent() {
 
     setLoading(true)
     try {
-      const payload = {
-        ...newPatient,
-        insurances: newPatient.isInsured ? patientInsurances : []
+      const payload: any = {
+        firstName: newPatient.firstName,
+        lastName: newPatient.lastName,
+        dateOfBirth: newPatient.dateOfBirth,
+        gender: newPatient.gender,
+        phone: newPatient.phone,
+        address: newPatient.address,
+        quartierId: newPatient.quartierId,
+        insurances: newPatient.isInsured ? patientInsurances : [],
+      }
+      if (newPatient.isCorporateEmployee) {
+        payload.isCorporateEmployee = true
+        payload.corporatePartnerId = newPatient.corporatePartnerId
+        payload.employeeNumber = newPatient.employeeNumber
+        payload.department = newPatient.department || undefined
+        payload.position = newPatient.position || undefined
+        payload.hireDate = newPatient.hireDate || undefined
       }
       const res = await fetch("/api/patients/create", {
         method: "POST",
@@ -485,6 +522,73 @@ function NewPatientContent() {
                   <Plus className="size-4 mr-2" />
                   Ajouter une autre assurance
                 </Button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-4 border-t">
+              <Switch
+                checked={newPatient.isCorporateEmployee}
+                onCheckedChange={(c) => setNewPatient((p) => ({ ...p, isCorporateEmployee: c }))}
+              />
+              <Label className="font-semibold text-lg">Employé d'entreprise partenaire</Label>
+            </div>
+
+            {newPatient.isCorporateEmployee && (
+              <div className="space-y-4">
+                <Card className="border-dashed bg-muted/30">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label>Entreprise partenaire</Label>
+                        <Select
+                          value={newPatient.corporatePartnerId}
+                          onValueChange={(v) => setNewPatient((p) => ({ ...p, corporatePartnerId: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choisir" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {corporatePartnersList.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>{p.companyName}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Numéro d'employé</Label>
+                        <Input
+                          value={newPatient.employeeNumber}
+                          onChange={(e) => setNewPatient((p) => ({ ...p, employeeNumber: e.target.value }))}
+                          placeholder="ex: EMP-001"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Département</Label>
+                        <Input
+                          value={newPatient.department}
+                          onChange={(e) => setNewPatient((p) => ({ ...p, department: e.target.value }))}
+                          placeholder="ex: Ressources Humaines"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Poste</Label>
+                        <Input
+                          value={newPatient.position}
+                          onChange={(e) => setNewPatient((p) => ({ ...p, position: e.target.value }))}
+                          placeholder="ex: Directeur"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Date d'embauche</Label>
+                        <Input
+                          type="date"
+                          value={newPatient.hireDate}
+                          onChange={(e) => setNewPatient((p) => ({ ...p, hireDate: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 

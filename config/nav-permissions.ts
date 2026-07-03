@@ -31,6 +31,7 @@ export const NAV_PERMISSIONS: NavPermission[] = [
     { group: "Pharmacy", roles: ["admin", "pharmacist", "cashier", "user"] },
     { group: "Finance", roles: ["admin", "cashier", "user"] },
     { group: "System", roles: ["admin", "user"] },
+    { group: "Corporate", roles: ["admin", "user"] },
 ]
 
 export interface NavItem {
@@ -106,6 +107,14 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
         label: "System",
         items: [
             { title: "Parametrage", href: "/parametrage", iconName: "Settings" },
+        ]
+    },
+    {
+        label: "Corporate",
+        items: [
+            { title: "Partenaires", href: "/partners", iconName: "Building2" },
+            { title: "Employés", href: "/partners/employees", iconName: "Users" },
+            { title: "Conventions", href: "/partners/agreements", iconName: "FileText" },
         ]
     },
 ]
