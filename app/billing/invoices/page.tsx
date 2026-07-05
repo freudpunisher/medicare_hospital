@@ -512,7 +512,7 @@ export default function InvoicesPage() {
                                 </div>
                             </div>
 
-                            <div className="w-full border-t border-dashed my-4" />
+                            <div className="w-full border-t border-dashed" />
                             <p className="text-center italic font-black" style={{ fontSize: '16px' }}>*** Merci de votre confiance ***</p>
                         </div>
                     )}

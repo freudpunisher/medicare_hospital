@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Trash2, Power, PowerOff, Loader2, FileText, Building2 } from "lucide-react"
+import { Plus, Pencil, Power, PowerOff, Loader2, FileText, Building2 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,9 +16,6 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -58,6 +56,7 @@ function formatDate(dateStr: string | null) {
 }
 
 export default function AgreementsPage() {
+  const router = useRouter()
   const [data, setData] = useState<Agreement[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -65,7 +64,6 @@ export default function AgreementsPage() {
   const [partners, setPartners] = useState<Partner[]>([])
   const [form, setForm] = useState({
     partnerId: "",
-    agreementNumber: "",
     agreementType: "",
     effectiveDate: "",
     expiryDate: "",
@@ -111,14 +109,14 @@ export default function AgreementsPage() {
 
   function resetForm() {
     setForm({
-      partnerId: "", agreementNumber: "", agreementType: "",
+      partnerId: "", agreementType: "",
       effectiveDate: "", expiryDate: "", globalDiscountPercentage: "",
       maxDiscountPerVisit: "", maxDiscountPerYear: "", notes: "",
     })
   }
 
   async function handleAdd() {
-    if (!form.partnerId || !form.agreementNumber || !form.agreementType || !form.effectiveDate) return
+    if (!form.partnerId || !form.agreementType || !form.effectiveDate) return
     setSubmitting(true)
     try {
       const res = await fetch("/api/partners/agreements/create", {
@@ -168,32 +166,17 @@ export default function AgreementsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    try {
-      const res = await fetch(`/api/partners/agreements/${id}`, { method: "DELETE" })
-      const result = await res.json()
-      if (res.ok && result.success) {
-        toast.success("Convention supprimée")
-        setData(prev => prev.filter(a => a.id !== id))
-      } else {
-        toast.error(result.error || "Erreur lors de la suppression")
-      }
-    } catch (err) {
-      toast.error("Erreur de connexion")
-    }
-  }
-
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6  mx-auto">
       <PageHeader title="Conventions Partenaires" description="Gérer les conventions et accords avec les entreprises partenaires">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={setOpen} >
           <DialogTrigger asChild>
             <Button size="sm" className="rounded-full shadow-md px-5 font-bold">
               <Plus className="size-4 mr-2" />
               Nouvelle Convention
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl backdrop-blur-xl bg-card/95">
+          <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl backdrop-blur-xl bg-card/95" style={{ maxWidth: "70vw" }}>
             <DialogHeader>
               <DialogTitle className="text-2xl font-black">Ajouter une Convention</DialogTitle>
               <DialogDescription>Définissez un nouvel accord de partenariat.</DialogDescription>
@@ -216,15 +199,6 @@ export default function AgreementsPage() {
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Numéro de convention</Label>
-                  <Input
-                    placeholder="ex: CONV-2024-001"
-                    className="rounded-2xl border-muted/50 bg-muted/20 focus:ring-primary/20"
-                    value={form.agreementNumber}
-                    onChange={(e) => setForm((f) => ({ ...f, agreementNumber: e.target.value }))}
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground ml-1">Type de convention</Label>
                   <Select
@@ -313,7 +287,7 @@ export default function AgreementsPage() {
             </div>
             <DialogFooter className="gap-2">
               <Button variant="ghost" onClick={() => setOpen(false)} className="rounded-full font-bold">Annuler</Button>
-              <Button onClick={handleAdd} disabled={submitting || !form.partnerId || !form.agreementNumber || !form.agreementType || !form.effectiveDate} className="rounded-full font-black px-8 shadow-lg">
+              <Button onClick={handleAdd} disabled={submitting || !form.partnerId || !form.agreementType || !form.effectiveDate} className="rounded-full font-black px-8 shadow-lg">
                 {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : <Plus className="size-4 mr-2" />}
                 Créer la Convention
               </Button>
@@ -417,34 +391,15 @@ export default function AgreementsPage() {
                           {agr.isActive ? <PowerOff className="size-4" /> : <Power className="size-4" />}
                         </Button>
 
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="rounded-full size-9 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-xl font-black">Supprimer {agr.agreementNumber} ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est irréversible. Toutes les règles associées seront également supprimées.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="rounded-full font-bold">Annuler</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(agr.id)}
-                                className="rounded-full font-black bg-destructive hover:bg-destructive/90"
-                              >
-                                Confirmer la Suppression
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full size-9 opacity-0 group-hover:opacity-100 transition-all hover:bg-primary/10 hover:text-primary"
+                          onClick={() => router.push(`/partners/agreements/${agr.id}`)}
+                          title="Modifier"
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -24,6 +24,7 @@ interface Act {
   code: string
   name: string
   serviceId: string
+  specialtyId: string | null
   basePrice: string
   isActive: boolean
 }
@@ -53,6 +54,32 @@ interface Patient {
   dateOfBirth: string
   coverageRate: string
   insurances: PatientInsurance[]
+  isCorporateEmployee: boolean
+  corporatePartnerId: string | null
+  corporateEmployeeId: string | null
+}
+
+interface PartnershipRule {
+  id: string
+  partnerId: string
+  agreementId: string
+  serviceId: string | null
+  medicalActId: string | null
+  specialtyId: string | null
+  reductionType: 'percentage' | 'fixed_amount'
+  reductionValue: string
+  maxReductionAmount: string | null
+  minBillableAmount: string | null
+  priority: string
+  notes: string | null
+  isActive: boolean
+}
+
+interface PartnershipData {
+  partner: { id: string; companyName: string }
+  employee: { id: string; employeeNumber: string; department: string | null; position: string | null }
+  agreements: any[]
+  rules: PartnershipRule[]
 }
 
 interface InsuranceRule {
@@ -81,6 +108,11 @@ interface InvoiceItem {
   totalPrice: number
   coverageRate: number
   coverageSource: 'rule' | 'patient' | 'none'
+  partnershipDiscount: number
+  partnershipRuleId: string | null
+  partnershipDiscountType: string | null
+  partnershipDiscountValue: number | null
+  partnershipOriginalPatientPart: number
 }
 
 export default function BillingPage() {
@@ -101,12 +133,18 @@ export default function BillingPage() {
         const act = acts.find(a => a.id === item.actId)
         if (!act) return item
         const { insurancePart, patientPart, rate, source } = calculateCoverage(act, item.quantity)
+        const partnership = calculatePartnershipDiscount(act, patientPart)
         return {
           ...item,
           insurancePart,
-          patientPart,
+          patientPart: patientPart - partnership.discount,
           coverageRate: rate,
-          coverageSource: source
+          coverageSource: source,
+          partnershipDiscount: partnership.discount,
+          partnershipRuleId: partnership.ruleId,
+          partnershipDiscountType: partnership.discountType,
+          partnershipDiscountValue: partnership.discountValue,
+          partnershipOriginalPatientPart: patientPart,
         }
       }))
     }
@@ -124,6 +162,8 @@ export default function BillingPage() {
   const [paymentReference, setPaymentReference] = useState("")
   const [discountAmount, setDiscountAmount] = useState(0)
   const [lastInvoice, setLastInvoice] = useState<any>(null)
+  const [partnershipData, setPartnershipData] = useState<PartnershipData | null>(null)
+  const [loadingPartnership, setLoadingPartnership] = useState(false)
   const receiptRef = useRef<HTMLDivElement>(null)
 
   // Fetch acts and services on mount
@@ -173,6 +213,64 @@ export default function BillingPage() {
     return () => clearTimeout(handler)
   }, [searchQuery])
 
+  // Fetch partnership discounts when patient is selected
+  useEffect(() => {
+    async function fetchPartnershipData() {
+      if (selectedPatient?.isCorporateEmployee && selectedPatient.corporatePartnerId) {
+        setLoadingPartnership(true)
+        try {
+          const res = await fetch(`/api/partners/patient-discounts?patientId=${selectedPatient.id}`)
+          const data = await res.json()
+          if (data.success && data.data) {
+            setPartnershipData(data.data)
+          } else {
+            setPartnershipData(null)
+          }
+        } catch (err) {
+          console.error("Failed to fetch partnership data")
+          setPartnershipData(null)
+        } finally {
+          setLoadingPartnership(false)
+        }
+      } else {
+        setPartnershipData(null)
+      }
+    }
+    fetchPartnershipData()
+  }, [selectedPatient])
+
+  // Recalculate partnership discounts when partnershipData loads/unloads
+  useEffect(() => {
+    if (items.length === 0) return
+    setItems(prevItems => prevItems.map(item => {
+      const act = acts.find(a => a.id === item.actId)
+      if (!act) return item
+      const base = item.partnershipOriginalPatientPart
+      if (partnershipData) {
+        const { discount, ruleId, discountType, discountValue } = calculatePartnershipDiscount(act, base)
+        return {
+          ...item,
+          partnershipDiscount: discount,
+          partnershipRuleId: ruleId,
+          partnershipDiscountType: discountType,
+          partnershipDiscountValue: discountValue,
+          partnershipOriginalPatientPart: base,
+          patientPart: base - discount,
+        }
+      } else {
+        return {
+          ...item,
+          partnershipDiscount: 0,
+          partnershipRuleId: null,
+          partnershipDiscountType: null,
+          partnershipDiscountValue: null,
+          partnershipOriginalPatientPart: base,
+          patientPart: base,
+        }
+      }
+    }))
+  }, [partnershipData])
+
   // Fetch insurance rules when selected insurances change
   useEffect(() => {
     async function fetchAllRules() {
@@ -207,8 +305,10 @@ export default function BillingPage() {
   const totals = useMemo(() => {
     const total = items.reduce((sum, i) => sum + i.totalPrice, 0)
     const insTotal = items.reduce((sum, i) => sum + i.insurancePart, 0)
+    const patGrossTotal = items.reduce((sum, i) => sum + i.partnershipOriginalPatientPart, 0)
     const patTotal = items.reduce((sum, i) => sum + i.patientPart, 0)
-    return { total, insTotal, patTotal }
+    const partnershipTotal = items.reduce((sum, i) => sum + i.partnershipDiscount, 0)
+    return { total, insTotal, patTotal, patGrossTotal, partnershipTotal }
   }, [items])
 
   function calculateCoverage(act: Act, qty: number): { insurancePart: number; patientPart: number; rate: number; source: 'rule' | 'patient' | 'none' } {
@@ -267,12 +367,57 @@ export default function BillingPage() {
     }
   }
 
+  function calculatePartnershipDiscount(
+    act: Act,
+    patientPart: number,
+  ): { discount: number; ruleId: string | null; discountType: string | null; discountValue: number | null } {
+    if (!partnershipData || !partnershipData.rules.length || patientPart <= 0) {
+      return { discount: 0, ruleId: null, discountType: null, discountValue: null }
+    }
+
+    const matchingRules = partnershipData.rules.filter(rule => {
+      if (rule.medicalActId && rule.medicalActId === act.id) return true
+      if (!rule.medicalActId && rule.serviceId && rule.serviceId === act.serviceId) return true
+      if (!rule.medicalActId && !rule.serviceId && rule.specialtyId && rule.specialtyId === act.specialtyId) return true
+      if (!rule.medicalActId && !rule.serviceId && !rule.specialtyId) return true
+      return false
+    })
+
+    if (matchingRules.length === 0) {
+      return { discount: 0, ruleId: null, discountType: null, discountValue: null }
+    }
+
+    const rule = matchingRules[0]
+
+    let discount = 0
+    if (rule.reductionType === 'percentage') {
+      discount = patientPart * (Number(rule.reductionValue) / 100)
+    } else {
+      discount = Number(rule.reductionValue)
+    }
+
+    if (rule.maxReductionAmount) {
+      discount = Math.min(discount, Number(rule.maxReductionAmount))
+    }
+
+    discount = Math.min(discount, patientPart)
+    discount = Math.round(discount)
+
+    return {
+      discount,
+      ruleId: rule.id,
+      discountType: rule.reductionType,
+      discountValue: Number(rule.reductionValue),
+    }
+  }
+
   function addItem() {
     if (!selectedActId || !selectedPatient) return
     const act = acts.find((a) => a.id === selectedActId)
     if (!act) return
 
     const { insurancePart, patientPart, rate, source } = calculateCoverage(act, 1)
+    const partnership = calculatePartnershipDiscount(act, patientPart)
 
     setItems((prev) => [
       ...prev,
@@ -284,10 +429,15 @@ export default function BillingPage() {
         quantity: 1,
         unitPrice: parseFloat(act.basePrice),
         insurancePart,
-        patientPart,
+        patientPart: patientPart - partnership.discount,
         totalPrice: parseFloat(act.basePrice),
         coverageRate: rate,
-        coverageSource: source
+        coverageSource: source,
+        partnershipDiscount: partnership.discount,
+        partnershipRuleId: partnership.ruleId,
+        partnershipDiscountType: partnership.discountType,
+        partnershipDiscountValue: partnership.discountValue,
+        partnershipOriginalPatientPart: patientPart,
       },
     ])
     setSelectedActId("")
@@ -374,12 +524,15 @@ export default function BillingPage() {
     if (items.length === 0 || !selectedPatient) return
     setIsSubmitting(true)
     try {
-      const payload = {
+      const partnershipTotalDiscount = items.reduce((sum, i) => sum + i.partnershipDiscount, 0)
+
+      const payload: Record<string, any> = {
         patientId: selectedPatient.id,
         totalAmount: totals.total,
         insuranceAmount: totals.insTotal,
         patientAmount: totals.patTotal - discountAmount,
         discountAmount: discountAmount,
+        partnershipDiscountAmount: partnershipTotalDiscount,
         paymentMethod,
         paymentReference: paymentMethod === 'mobile_money' ? paymentReference : null,
         items: items.map(i => ({
@@ -388,6 +541,25 @@ export default function BillingPage() {
           unitPrice: i.unitPrice,
           totalPrice: i.totalPrice,
         }))
+      }
+
+      if (partnershipData && partnershipTotalDiscount > 0) {
+        payload.partnershipData = {
+          partnerId: partnershipData.partner.id,
+          employeeId: partnershipData.employee.id,
+          items: items
+            .map((i, idx) => ({ ...i, itemIndex: idx }))
+            .filter(i => i.partnershipDiscount > 0)
+            .map(i => ({
+              itemIndex: i.itemIndex,
+              ruleId: i.partnershipRuleId!,
+              originalPrice: i.totalPrice,
+              discountedPrice: i.totalPrice - i.partnershipDiscount,
+              discountAmount: i.partnershipDiscount,
+              discountType: i.partnershipDiscountType,
+              discountValue: i.partnershipDiscountValue,
+            })),
+        }
       }
 
       const res = await fetch("/api/billing/invoices/create", {
@@ -409,7 +581,8 @@ export default function BillingPage() {
         items: [...items],
         paymentMethod,
         paymentReference,
-        totals: { ...totals }
+        totals: { ...totals },
+        partnershipData: partnershipData,
       };
 
       setLastInvoice(invoiceData)
@@ -428,6 +601,7 @@ export default function BillingPage() {
         setSearchQuery("")
         setPaymentReference("")
         setDiscountAmount(0)
+        setPartnershipData(null)
       }, 300);
 
     } catch (err) {
@@ -518,6 +692,12 @@ export default function BillingPage() {
                   <span>PART ASSUREANCE:</span>
                   <span>-{lastInvoice.totals.insTotal.toLocaleString()} FBU</span>
                 </div>
+                {lastInvoice.totals.partnershipTotal > 0 && (
+                  <div className="flex justify-between text-blue-600" style={{ fontSize: '13px' }}>
+                    <span>Remise Corporate:</span>
+                    <span>-{lastInvoice.totals.partnershipTotal.toLocaleString()} FBU</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-black" style={{ fontSize: '22px' }}>
                   <span>À PAYER:</span>
                   <span>{lastInvoice.totals.patTotal.toLocaleString()} FBU</span>
@@ -539,7 +719,7 @@ export default function BillingPage() {
                 )}
               </div>
 
-              <div className="w-full border-t border-dashed my-4" />
+              <div className="w-full border-t border-dashed" />
               <p className="text-center italic font-black" style={{ fontSize: '16px' }}>*** Merci de votre confiance ***</p>
               <p className="text-center mt-1 font-bold" style={{ fontSize: '12px' }}>{lastInvoice.id}</p>
             </div>
@@ -597,12 +777,19 @@ export default function BillingPage() {
                               {patient.phone} — #{patient.patientNumber}
                             </p>
                           </div>
-                          {patient.isInsured && (
-                            <Badge variant="outline" className="ml-auto border-green-500/30 bg-green-500/5 text-green-600 text-[10px] h-5">
-                              <Shield className="size-3 mr-1" />
-                              Assuré
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-1 ml-auto">
+                            {patient.isCorporateEmployee && (
+                              <Badge variant="outline" className="border-blue-500/30 bg-blue-500/5 text-blue-600 text-[10px] h-5">
+                                Corporate
+                              </Badge>
+                            )}
+                            {patient.isInsured && (
+                              <Badge variant="outline" className="border-green-500/30 bg-green-500/5 text-green-600 text-[10px] h-5">
+                                <Shield className="size-3 mr-1" />
+                                Assuré
+                              </Badge>
+                            )}
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -660,6 +847,47 @@ export default function BillingPage() {
                     <p className="font-medium">{new Date().getFullYear() - new Date(selectedPatient.dateOfBirth).getFullYear()} ans</p>
                   </div>
                 </div>
+
+                {selectedPatient.isCorporateEmployee && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-1">
+                        Partenaire Corporate
+                      </label>
+                      {loadingPartnership ? (
+                        <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
+                          <Loader2 className="size-3 animate-spin" />
+                          Chargement...
+                        </div>
+                      ) : partnershipData ? (
+                        <div className="bg-blue-500/5 border border-blue-200/30 rounded-lg p-3 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-foreground">{partnershipData.partner.companyName}</span>
+                            {partnershipData.rules.length > 0 && (
+                              <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/30 text-[9px] h-5">
+                                {partnershipData.rules.length} règle{partnershipData.rules.length > 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                          </div>
+                          {partnershipData.employee.position && (
+                            <p className="text-[11px] text-muted-foreground">{partnershipData.employee.position}{partnershipData.employee.department ? ` — ${partnershipData.employee.department}` : ''}</p>
+                          )}
+                          <p className="text-[10px] font-mono text-muted-foreground">Matricule: {partnershipData.employee.employeeNumber}</p>
+                          {partnershipData.rules.length > 0 && (
+                            <div className="pt-1 border-t border-blue-200/20 mt-1">
+                              <p className="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Remise partenaire active</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-muted/50 rounded-lg p-2">
+                          <p className="text-xs text-muted-foreground">Aucune convention active</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <Separator />
 
@@ -829,6 +1057,13 @@ export default function BillingPage() {
                                 </Badge>
                               </div>
                             )}
+                            {item.partnershipDiscount > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-blue-600 font-bold">
+                                  -{item.partnershipDiscount.toLocaleString()} FBU Corporate
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-8">
@@ -957,9 +1192,15 @@ export default function BillingPage() {
                         </div>
                       </div>
                     )}
+                    {totals.partnershipTotal > 0 && (
+                      <div className="flex justify-between items-center text-xs text-blue-600 font-bold">
+                        <span>Remise Corporate :</span>
+                        <span>-{totals.partnershipTotal.toLocaleString()} FBU</span>
+                      </div>
+                    )}
                     {discountAmount > 0 && (
                       <div className="flex justify-between items-center text-xs text-orange-600 font-bold italic">
-                        <span>Réduction :</span>
+                        <span>Réduction manuelle :</span>
                         <span>-{discountAmount.toLocaleString()} FBU</span>
                       </div>
                     )}
@@ -967,7 +1208,7 @@ export default function BillingPage() {
                     <div className="flex justify-between items-baseline pt-1">
                       <span className="text-[10px] font-black uppercase text-slate-500">Net Patient :</span>
                       <div className="text-right">
-                        <p className={`text-2xl font-black ${paymentMethod === 'loan' ? 'text-orange-600' : 'text-primary'} animate-in zoom-in duration-300`} key={discountAmount}>
+                        <p className={`text-2xl font-black ${paymentMethod === 'loan' ? 'text-orange-600' : 'text-primary'} animate-in zoom-in duration-300`} key={`${discountAmount}-${totals.partnershipTotal}`}>
                           {(totals.patTotal - discountAmount).toLocaleString()}
                         </p>
                         <p className="text-[8px] font-bold text-muted-foreground">FRANC BURUNDAIS</p>

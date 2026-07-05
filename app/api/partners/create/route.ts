@@ -31,8 +31,8 @@ export async function POST(req: Request) {
         contactPhone: contactPhone ?? null,
         address: address ?? null,
         website: website ?? null,
-        partnershipStartDate,
-        partnershipEndDate: partnershipEndDate ?? null,
+        partnershipStartDate: new Date(partnershipStartDate),
+        partnershipEndDate: partnershipEndDate ? new Date(partnershipEndDate) : null,
         autoRenew: autoRenew ?? false,
         notes: notes ?? null,
       })

@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         employeeNumber,
         department: department ?? null,
         position: position ?? null,
-        hireDate: hireDate ?? null,
+        hireDate: hireDate ? new Date(hireDate) : null,
       })
       .returning()
 

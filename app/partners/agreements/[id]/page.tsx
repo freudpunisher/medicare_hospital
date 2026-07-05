@@ -516,7 +516,14 @@ export default function AgreementDetailPage() {
                 {rules.map((rule) => (
                   <TableRow key={rule.id} className="group hover:bg-muted/40 transition-colors border-muted/50">
                     <TableCell className="pl-8 py-4">
-                      <p className="font-black text-sm">{rule.serviceName}</p>
+                      {rule.serviceName ? (
+                        <p className="font-black text-sm">{rule.serviceName}</p>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <Percent className="size-3.5 text-primary" />
+                          <p className="font-black text-sm text-primary">Tous les services</p>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="py-4">
                       <p className="text-xs font-medium text-muted-foreground">{rule.medicalActName || <span className="opacity-30 italic">—</span>}</p>
@@ -550,47 +557,55 @@ export default function AgreementDetailPage() {
                     </TableCell>
                     <TableCell className="text-right pr-8 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={cn(
-                            "rounded-full size-8 transition-all",
-                            rule.isActive ? "hover:bg-red-500/10 hover:text-red-600" : "hover:bg-green-500/10 hover:text-green-600"
-                          )}
-                          onClick={() => toggleRuleStatus(rule)}
-                          title={rule.isActive ? "Désactiver" : "Activer"}
-                        >
-                          {rule.isActive ? <PowerOff className="size-3.5" /> : <Power className="size-3.5" />}
-                        </Button>
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                        {!rule.serviceName && !rule.medicalActName && !rule.specialtyName ? (
+                          <Badge variant="outline" className="rounded-full text-[10px] px-2.5 py-0.5 bg-primary/5 border-primary/20 text-primary font-bold">
+                            Globale
+                          </Badge>
+                        ) : (
+                          <>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="rounded-full size-8 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive"
+                              className={cn(
+                                "rounded-full size-8 transition-all",
+                                rule.isActive ? "hover:bg-red-500/10 hover:text-red-600" : "hover:bg-green-500/10 hover:text-green-600"
+                              )}
+                              onClick={() => toggleRuleStatus(rule)}
+                              title={rule.isActive ? "Désactiver" : "Activer"}
                             >
-                              <Trash2 className="size-3.5" />
+                              {rule.isActive ? <PowerOff className="size-3.5" /> : <Power className="size-3.5" />}
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-xl font-black">Supprimer cette règle ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est irréversible. La règle sera définitivement supprimée.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="rounded-full font-bold">Annuler</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteRule(rule.id)}
-                                className="rounded-full font-black bg-destructive hover:bg-destructive/90"
-                              >
-                                Confirmer la Suppression
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full size-8 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="text-xl font-black">Supprimer cette règle ?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Cette action est irréversible. La règle sera définitivement supprimée.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="rounded-full font-bold">Annuler</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteRule(rule.id)}
+                                    className="rounded-full font-black bg-destructive hover:bg-destructive/90"
+                                  >
+                                    Confirmer la Suppression
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

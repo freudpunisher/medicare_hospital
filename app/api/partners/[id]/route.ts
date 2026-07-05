@@ -74,8 +74,8 @@ export async function PATCH(
     if (contactPhone !== undefined) updateData.contactPhone = contactPhone
     if (address !== undefined) updateData.address = address
     if (website !== undefined) updateData.website = website
-    if (partnershipStartDate !== undefined) updateData.partnershipStartDate = partnershipStartDate
-    if (partnershipEndDate !== undefined) updateData.partnershipEndDate = partnershipEndDate
+    if (partnershipStartDate !== undefined) updateData.partnershipStartDate = new Date(partnershipStartDate)
+    if (partnershipEndDate !== undefined) updateData.partnershipEndDate = partnershipEndDate ? new Date(partnershipEndDate) : null
     if (autoRenew !== undefined) updateData.autoRenew = autoRenew
     if (notes !== undefined) updateData.notes = notes
     if (isActive !== undefined) updateData.isActive = isActive

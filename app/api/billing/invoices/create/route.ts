@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { invoices, invoiceItems, payments } from '@/db/schema'
+import { invoices, invoiceItems, payments, partnershipVisitLogs, partnershipDiscountHistory } from '@/db/schema'
 
 export async function POST(req: Request) {
     try {
@@ -11,6 +11,8 @@ export async function POST(req: Request) {
             insuranceAmount,
             patientAmount,
             discountAmount,
+            partnershipDiscountAmount,
+            partnershipData,
             visitId,
             notes,
             items,
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
                 totalPrice: item.totalPrice.toString(),
             }))
 
-            await tx.insert(invoiceItems).values(itemsToInsert)
+            const insertedItems = await tx.insert(invoiceItems).values(itemsToInsert).returning()
 
             // Automatically create payment if method provided
             if (paymentMethod) {
@@ -63,8 +65,38 @@ export async function POST(req: Request) {
                     amount: patientAmount.toString(),
                     paymentMethod,
                     referenceNumber: paymentReference || null,
-                    notes: `Automatic payment on invoice creation${discountAmount > 0 ? ` (Reduction: ${discountAmount} FBU)` : ''}`,
+                    notes: `Automatic payment on invoice creation${discountAmount > 0 ? ` (Reduction: ${discountAmount} FBU)` : ''}${partnershipDiscountAmount > 0 ? ` (Corporate: ${partnershipDiscountAmount} FBU)` : ''}`,
                 })
+            }
+
+            // Save partnership visit log and discount history
+            if (partnershipData && partnershipDiscountAmount > 0) {
+                await tx
+                    .insert(partnershipVisitLogs)
+                    .values({
+                        partnerId: partnershipData.partnerId,
+                        employeeId: partnershipData.employeeId,
+                        visitId: null,
+                        invoiceId: invoice.id,
+                        totalDiscountApplied: partnershipDiscountAmount.toString(),
+                        originalTotal: totalAmount.toString(),
+                        finalTotal: (Number(totalAmount) - Number(partnershipDiscountAmount)).toString(),
+                    })
+
+                for (const pd of partnershipData.items) {
+                    const invItem = insertedItems[pd.itemIndex]
+                    if (!invItem) continue
+                    await tx.insert(partnershipDiscountHistory).values({
+                        partnerId: partnershipData.partnerId,
+                        invoiceItemId: invItem.id,
+                        ruleId: pd.ruleId,
+                        originalPrice: pd.originalPrice.toString(),
+                        discountedPrice: pd.discountedPrice.toString(),
+                        discountAmount: pd.discountAmount.toString(),
+                        discountType: pd.discountType,
+                        discountValue: pd.discountValue.toString(),
+                    })
+                }
             }
 
             return invoice

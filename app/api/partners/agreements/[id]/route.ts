@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { partnershipAgreements, partnershipServiceRules } from '@/db/schema'
-import { eq, count } from 'drizzle-orm'
+import { eq, and, isNull, count } from 'drizzle-orm'
 
 export async function GET(
   req: Request,
@@ -63,25 +63,70 @@ export async function PATCH(
     if (partnerId !== undefined) updateData.partnerId = partnerId
     if (agreementNumber !== undefined) updateData.agreementNumber = agreementNumber
     if (agreementType !== undefined) updateData.agreementType = agreementType
-    if (effectiveDate !== undefined) updateData.effectiveDate = effectiveDate
-    if (expiryDate !== undefined) updateData.expiryDate = expiryDate
+    if (effectiveDate !== undefined) updateData.effectiveDate = new Date(effectiveDate)
+    if (expiryDate !== undefined) updateData.expiryDate = expiryDate ? new Date(expiryDate) : null
     if (isActive !== undefined) updateData.isActive = isActive
     if (globalDiscountPercentage !== undefined) updateData.globalDiscountPercentage = globalDiscountPercentage
     if (maxDiscountPerVisit !== undefined) updateData.maxDiscountPerVisit = maxDiscountPerVisit
     if (maxDiscountPerYear !== undefined) updateData.maxDiscountPerYear = maxDiscountPerYear
     if (notes !== undefined) updateData.notes = notes
 
-    const [updated] = await db
-      .update(partnershipAgreements)
-      .set(updateData)
-      .where(eq(partnershipAgreements.id, id))
-      .returning()
+    const result = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(partnershipAgreements)
+        .set(updateData)
+        .where(eq(partnershipAgreements.id, id))
+        .returning()
 
-    if (!updated) {
+      if (!updated) {
+        return null
+      }
+
+      if (globalDiscountPercentage !== undefined) {
+        const catchAllFilter = and(
+          eq(partnershipServiceRules.agreementId, id),
+          isNull(partnershipServiceRules.serviceId),
+          isNull(partnershipServiceRules.medicalActId),
+          isNull(partnershipServiceRules.specialtyId),
+        )
+
+        if (globalDiscountPercentage != null) {
+          const [existing] = await tx
+            .select()
+            .from(partnershipServiceRules)
+            .where(catchAllFilter)
+            .limit(1)
+
+          if (existing) {
+            await tx
+              .update(partnershipServiceRules)
+              .set({ reductionValue: globalDiscountPercentage })
+              .where(eq(partnershipServiceRules.id, existing.id))
+          } else {
+            await tx.insert(partnershipServiceRules).values({
+              partnerId: updated.partnerId,
+              agreementId: id,
+              reductionType: 'percentage',
+              reductionValue: globalDiscountPercentage,
+              priority: '999',
+              notes: 'Remise globale - catch-all',
+            })
+          }
+        } else {
+          await tx
+            .delete(partnershipServiceRules)
+            .where(catchAllFilter)
+        }
+      }
+
+      return updated
+    })
+
+    if (!result) {
       return NextResponse.json({ success: false, error: 'Agreement not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, data: updated })
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
     console.error('Failed to update agreement:', error)
     return NextResponse.json({ success: false, error: 'Failed to update agreement' }, { status: 500 })
@@ -110,3 +155,5 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: 'Failed to delete agreement' }, { status: 500 })
   }
 }
+
+
