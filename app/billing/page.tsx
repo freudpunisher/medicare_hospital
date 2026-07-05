@@ -453,28 +453,36 @@ export default function BillingPage() {
     const receiptHtml = receiptRef.current?.innerHTML;
     if (!receiptHtml) return;
 
-    const win = window.open("", "_blank", "width=800,height=900");
+    const win = window.open("", "_blank", "width=800,height=500");
     if (!win) return;
 
     win.document.write(`
       <html>
         <head>
-          <title>Receipt - ${invoiceData.invoiceNumber}</title>
+          <title>Reçu - ${invoiceData.invoiceNumber}</title>
           <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            html, body { height: auto; }
-            body { 
-              font-family: 'Courier New', Courier, monospace; 
-              font-size: 11px; 
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            html { height: auto; }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 12px;
               font-weight: 400;
-              background: #fff; 
+              background: #fff;
+              width: 76mm;
+              max-width: 76mm;
               padding: 2mm;
-              line-height: 1.15;
+              margin: 0;
+              line-height: 1.3;
+              overflow: hidden;
+              word-break: break-word;
+              overflow-wrap: break-word;
             }
-            .flex { display: flex; }
+            .flex { display: flex; gap: 2px; width: 100%; overflow: hidden; }
             .flex-col { flex-direction: column; }
             .items-center { align-items: center; }
             .justify-between { justify-content: space-between; }
+            .flex span { overflow-wrap: break-word; word-break: break-word; min-width: 0; }
+            .flex .text-right { flex-shrink: 0; max-width: 55%; text-align: right; }
             .w-full { width: 100%; }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
@@ -483,44 +491,26 @@ export default function BillingPage() {
             .uppercase { text-transform: uppercase; }
             .italic { font-style: italic; }
             .mt-1 { margin-top: 2px; }
-            .my-1 { margin-top: 4px; margin-bottom: 4px; }
-            .my-2 { margin-top: 5px; margin-bottom: 5px; }
-            .my-4 { margin-top: 8px; margin-bottom: 8px; }
-            .mb-2 { margin-bottom: 5px; }
+            .mb-2 { margin-bottom: 2px; }
+            .my-1 { margin-top: 3px; margin-bottom: 3px; }
+            .my-2 { margin-top: 3px; margin-bottom: 3px; }
             .pl-2 { padding-left: 4px; }
-            .py-1 { padding-top: 2px; padding-bottom: 2px; }
             .border-t { border-top: 1px solid #000; }
             .border-b { border-bottom: 1px solid #000; }
-            .border-dashed { border-style: dashed; border-top-width: 1px; }
-            .table { display: table; width: 100%; }
+            .border-dashed { border-style: dashed; }
+            .table { display: table; width: 100%; table-layout: fixed; }
             .table-row { display: table-row; }
-            .table-cell { display: table-cell; padding: 2px 0; }
-            .text-blue-600 { color: #2563eb; }
-            .leading-tight { line-height: 1.15; }
-            .tracking-wider { letter-spacing: 0.05em; }
-            .tracking-widest { letter-spacing: 0.1em; }
-            .tracking-tighter { letter-spacing: -0.05em; }
+            .table-cell { display: table-cell; padding: 0; word-break: break-word; overflow-wrap: break-word; }
+            #print-content { display: block; width: 100%; }
             @media print {
-              @page { size: 80mm auto; margin: 0mm; }
-              body { padding: 2mm; }
+              @page { size: 80mm auto; margin: 0; }
+              html, body { height: auto; margin: 0; padding: 2mm; width: 76mm; }
+              #print-content { page-break-after: avoid; break-after: avoid; }
             }
           </style>
         </head>
-        <body onload="setTimeout(() => { window.print(); window.close(); }, 200)">
-          <div id="print-content">
-            ${receiptHtml}
-            ${invoiceData.discountAmount > 0 ? `
-              <div class="border-t border-dashed my-1"></div>
-              <div class="flex justify-between font-bold">
-                <span>RÉDUCTION:</span>
-                <span>-${invoiceData.discountAmount.toLocaleString()} FBU</span>
-              </div>
-              <div class="flex justify-between font-black mt-1">
-                <span>NET PATIENT:</span>
-                <span>${(invoiceData.patientAmount).toLocaleString()} FBU</span>
-              </div>
-            ` : ""}
-          </div>
+        <body onload="setTimeout(function(){window.print();window.close()},150)">
+          <div id="print-content">${receiptHtml}</div>
         </body>
       </html>
     `);
@@ -598,18 +588,15 @@ export default function BillingPage() {
         description: `Total: ${totals.total.toLocaleString()} FBU | Patient: ${(totals.patTotal - discountAmount).toLocaleString()} FBU`,
       })
 
-      // Immediate print using the data we just got
-      // Delay slightly to allow receiptRef to potentially update if it was relying on lastInvoice
-      // But actually, we can pass invoiceData directly if we want to be safe
       setTimeout(() => {
         handlePrint(invoiceData);
-        setItems([])
-        setSelectedPatient(null)
-        setSearchQuery("")
-        setPaymentReference("")
-        setDiscountAmount(0)
-        setPartnershipData(null)
       }, 300);
+      setItems([])
+      setSelectedPatient(null)
+      setSearchQuery("")
+      setPaymentReference("")
+      setDiscountAmount(0)
+      setPartnershipData(null)
 
     } catch (err) {
       toast.error("Une erreur est survenue")
@@ -622,17 +609,17 @@ export default function BillingPage() {
     <div className="p-6 space-y-6">
       <PageHeader title="Facturation" description="Gérer les factures et les paiements immédiats" />
 
-      {/* Off-screen thermal receipt container for capturing HTML */}
+      {/* Off-screen thermal receipt container */}
       <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
         <div ref={receiptRef}>
           {lastInvoice && (
             <div className="flex-col items-center w-full">
-                <div className="text-center mb-2">
-                  <h2 className="font-bold uppercase" style={{ fontSize: '12px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
-                  <p className="font-bold mt-1">NIF: 500253456</p>
-                  <p>Forme juridique: SURL | RC: 00734372/25</p>
-                  <p>Centre fiscal: DPMC</p>
-                </div>
+              <div className="text-center mb-2">
+                <h2 className="font-bold uppercase" style={{ fontSize: '14px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                <p className="font-bold">NIF: 500253456</p>
+                <p>Forme juridique: SURL | RC: 00734372/25</p>
+                <p>Centre fiscal: DPMC</p>
+              </div>
               <div className="w-full border-t border-dashed my-2" />
 
               <div className="w-full flex-col">
@@ -660,7 +647,7 @@ export default function BillingPage() {
                   <div className="flex-col mt-1">
                     <span className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</span>
                     {lastInvoice.selectedInsurances.map((si: any) => (
-                      <div key={si.id} className="flex justify-between pl-2 italic font-bold">
+                      <div key={si.id} className="flex justify-between pl-2 italic font-bold" style={{ fontSize: '14px' }}>
                         <span>- {si.insurance.name}:</span>
                         <span>{si.insuranceNumber}</span>
                       </div>
@@ -678,10 +665,10 @@ export default function BillingPage() {
                 </div>
                 {lastInvoice.items.map((item: any) => (
                   <div key={item.id} className="table-row">
-                    <div className="table-cell py-1">
+                    <div className="table-cell">
                       {item.actName}
                       <br />
-                      <span className="italic font-bold">{item.actCode}</span>
+                      <span className="italic font-bold" style={{ fontSize: '12px' }}>{item.actCode}</span>
                     </div>
                     <div className="table-cell text-right">{item.patientPart.toLocaleString()}FBU</div>
                   </div>
@@ -700,12 +687,12 @@ export default function BillingPage() {
                   <span>-{lastInvoice.totals.insTotal.toLocaleString()} FBU</span>
                 </div>
                 {lastInvoice.totals.partnershipTotal > 0 && (
-                  <div className="flex justify-between text-blue-600">
+                  <div className="flex justify-between" style={{ color: '#2563eb' }}>
                     <span>Remise Corporate:</span>
                     <span>-{lastInvoice.totals.partnershipTotal.toLocaleString()} FBU</span>
                   </div>
                 )}
-                <div className="flex justify-between font-black" style={{ fontSize: '15px' }}>
+                <div className="flex justify-between font-black" style={{ fontSize: '18px' }}>
                   <span>À PAYER:</span>
                   <span>{lastInvoice.totals.patTotal.toLocaleString()} FBU</span>
                 </div>
@@ -727,8 +714,8 @@ export default function BillingPage() {
               </div>
 
               <div className="w-full border-t border-dashed" />
-              <p className="text-center italic font-black">*** Merci de votre confiance ***</p>
-              <p className="text-center mt-1 font-bold">{lastInvoice.id}</p>
+              <p className="text-center italic font-black" style={{ fontSize: '14px' }}>*** Merci de votre confiance ***</p>
+              <p className="text-center mt-1 font-bold" style={{ fontSize: '10px' }}>{lastInvoice.id}</p>
             </div>
           )}
         </div>
