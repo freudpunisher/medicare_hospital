@@ -462,15 +462,14 @@ export default function BillingPage() {
           <title>Receipt - ${invoiceData.invoiceNumber}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            html, body { height: auto; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              font-size: 15px; 
-              font-weight: 700;
+              font-size: 11px; 
+              font-weight: 400;
               background: #fff; 
-              width: 100mm; 
-              padding: 4mm;
-              margin: 0 auto;
-              line-height: 1.2;
+              padding: 2mm;
+              line-height: 1.15;
             }
             .flex { display: flex; }
             .flex-col { flex-direction: column; }
@@ -479,36 +478,44 @@ export default function BillingPage() {
             .w-full { width: 100%; }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
-            .text-red { color: #000; font-weight: bold; }
-            .font-bold { font-weight: bold; }
+            .font-bold { font-weight: 700; }
             .font-black { font-weight: 900; }
             .uppercase { text-transform: uppercase; }
             .italic { font-style: italic; }
-            .my-2 { margin-top: 10px; margin-bottom: 10px; }
-            .my-4 { margin-top: 18px; margin-bottom: 18px; }
-            .mb-2 { margin-bottom: 10px; }
-            .border-t { border-top: 1.5px solid #000; }
-            .border-b { border-bottom: 1.5px solid #000; }
-            .border-dashed { border-style: dashed; border-top-width: 1.5px; }
+            .mt-1 { margin-top: 2px; }
+            .my-1 { margin-top: 4px; margin-bottom: 4px; }
+            .my-2 { margin-top: 5px; margin-bottom: 5px; }
+            .my-4 { margin-top: 8px; margin-bottom: 8px; }
+            .mb-2 { margin-bottom: 5px; }
+            .pl-2 { padding-left: 4px; }
+            .py-1 { padding-top: 2px; padding-bottom: 2px; }
+            .border-t { border-top: 1px solid #000; }
+            .border-b { border-bottom: 1px solid #000; }
+            .border-dashed { border-style: dashed; border-top-width: 1px; }
             .table { display: table; width: 100%; }
             .table-row { display: table-row; }
-            .table-cell { display: table-cell; padding-top: 6px; padding-bottom: 6px; }
+            .table-cell { display: table-cell; padding: 2px 0; }
+            .text-blue-600 { color: #2563eb; }
+            .leading-tight { line-height: 1.15; }
+            .tracking-wider { letter-spacing: 0.05em; }
+            .tracking-widest { letter-spacing: 0.1em; }
+            .tracking-tighter { letter-spacing: -0.05em; }
             @media print {
-              body { width: 100mm; margin: 0; padding: 4mm; }
-              @page { size: 100mm auto; margin: 0; }
+              @page { size: 80mm auto; margin: 0mm; }
+              body { padding: 2mm; }
             }
           </style>
         </head>
-        <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+        <body onload="setTimeout(() => { window.print(); window.close(); }, 200)">
           <div id="print-content">
             ${receiptHtml}
             ${invoiceData.discountAmount > 0 ? `
-              <div class="border-t border-dashed my-2"></div>
-              <div class="flex justify-between font-bold text-red">
+              <div class="border-t border-dashed my-1"></div>
+              <div class="flex justify-between font-bold">
                 <span>RÉDUCTION:</span>
                 <span>-${invoiceData.discountAmount.toLocaleString()} FBU</span>
               </div>
-              <div class="flex justify-between font-black mt-1" style="font-size: 14px;">
+              <div class="flex justify-between font-black mt-1">
                 <span>NET PATIENT:</span>
                 <span>${(invoiceData.patientAmount).toLocaleString()} FBU</span>
               </div>
@@ -620,12 +627,12 @@ export default function BillingPage() {
         <div ref={receiptRef}>
           {lastInvoice && (
             <div className="flex-col items-center w-full">
-              <div className="text-center mb-2">
-                <h2 className="font-bold uppercase" style={{ fontSize: '15px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
-                <p className="font-bold text-[11px] mt-1">NIF: 500253456</p>
-                <p className="text-[9px] mt-1">Forme juridique: SURL | RC: 00734372/25</p>
-                <p className="text-[9px]">Centre fiscal: DPMC</p>
-              </div>
+                <div className="text-center mb-2">
+                  <h2 className="font-bold uppercase" style={{ fontSize: '12px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                  <p className="font-bold mt-1">NIF: 500253456</p>
+                  <p>Forme juridique: SURL | RC: 00734372/25</p>
+                  <p>Centre fiscal: DPMC</p>
+                </div>
               <div className="w-full border-t border-dashed my-2" />
 
               <div className="w-full flex-col">
@@ -637,7 +644,7 @@ export default function BillingPage() {
                   <span>FACT NO:</span>
                   <span>{lastInvoice.invoiceNumber}</span>
                 </div>
-                <div className="flex justify-between italic text-[12px]">
+                <div className="flex justify-between italic">
                   <span>CAISSIER:</span>
                   <span className="uppercase">{user?.fullName || user?.username || 'Système'}</span>
                 </div>
@@ -653,7 +660,7 @@ export default function BillingPage() {
                   <div className="flex-col mt-1">
                     <span className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</span>
                     {lastInvoice.selectedInsurances.map((si: any) => (
-                      <div key={si.id} className="flex justify-between pl-2 italic font-bold" style={{ fontSize: '14px' }}>
+                      <div key={si.id} className="flex justify-between pl-2 italic font-bold">
                         <span>- {si.insurance.name}:</span>
                         <span>{si.insuranceNumber}</span>
                       </div>
@@ -674,7 +681,7 @@ export default function BillingPage() {
                     <div className="table-cell py-1">
                       {item.actName}
                       <br />
-                      <span className="italic font-bold" style={{ fontSize: '14px' }}>{item.actCode}</span>
+                      <span className="italic font-bold">{item.actCode}</span>
                     </div>
                     <div className="table-cell text-right">{item.patientPart.toLocaleString()}FBU</div>
                   </div>
@@ -693,12 +700,12 @@ export default function BillingPage() {
                   <span>-{lastInvoice.totals.insTotal.toLocaleString()} FBU</span>
                 </div>
                 {lastInvoice.totals.partnershipTotal > 0 && (
-                  <div className="flex justify-between text-blue-600" style={{ fontSize: '13px' }}>
+                  <div className="flex justify-between text-blue-600">
                     <span>Remise Corporate:</span>
                     <span>-{lastInvoice.totals.partnershipTotal.toLocaleString()} FBU</span>
                   </div>
                 )}
-                <div className="flex justify-between font-black" style={{ fontSize: '22px' }}>
+                <div className="flex justify-between font-black" style={{ fontSize: '15px' }}>
                   <span>À PAYER:</span>
                   <span>{lastInvoice.totals.patTotal.toLocaleString()} FBU</span>
                 </div>
@@ -720,8 +727,8 @@ export default function BillingPage() {
               </div>
 
               <div className="w-full border-t border-dashed" />
-              <p className="text-center italic font-black" style={{ fontSize: '16px' }}>*** Merci de votre confiance ***</p>
-              <p className="text-center mt-1 font-bold" style={{ fontSize: '12px' }}>{lastInvoice.id}</p>
+              <p className="text-center italic font-black">*** Merci de votre confiance ***</p>
+              <p className="text-center mt-1 font-bold">{lastInvoice.id}</p>
             </div>
           )}
         </div>
