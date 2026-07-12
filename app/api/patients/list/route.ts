@@ -10,12 +10,15 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const search = (searchParams.get('search') || '').trim()
     const filter = searchParams.get('filter') || 'all'
+    const gender = searchParams.get('gender') || 'all'
 
     const offset = (page - 1) * limit
 
     const filters = []
     if (filter === 'insured') filters.push(eq(patients.isInsured, true))
     if (filter === 'uninsured') filters.push(eq(patients.isInsured, false))
+    if (gender === 'male') filters.push(eq(patients.gender, 'Male'))
+    if (gender === 'female') filters.push(eq(patients.gender, 'Female'))
     if (search) {
       filters.push(
         or(
@@ -30,13 +33,24 @@ export async function GET(req: Request) {
 
     const whereCondition = filters.length > 0 ? and(...filters) : undefined
 
-    // Count query
+    // Count query (filtered)
     const countQuery = whereCondition
       ? db.select({ count: count() }).from(patients).where(whereCondition)
       : db.select({ count: count() }).from(patients)
 
     const countResult = await countQuery
     const total = countResult[0]?.count || 0
+
+    // Aggregate stats (unfiltered)
+    const statsRows = await db.select({
+      total: count(),
+      males: sql<number>`COUNT(*) FILTER (WHERE gender = 'Male')`,
+      females: sql<number>`COUNT(*) FILTER (WHERE gender = 'Female')`,
+      insured: sql<number>`COUNT(*) FILTER (WHERE is_insured = true)`,
+      uninsured: sql<number>`COUNT(*) FILTER (WHERE is_insured = false)`,
+    }).from(patients)
+
+    const stats = statsRows[0] || { total: 0, males: 0, females: 0, insured: 0, uninsured: 0 }
 
     // Fetch patients with their insurances relation
     const data = await db.query.patients.findMany({
@@ -55,6 +69,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       data,
+      stats,
       pagination: {
         page,
         limit,

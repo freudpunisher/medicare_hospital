@@ -198,14 +198,23 @@ export default function SaleReceiptPage() {
 
             <style jsx global>{`
         @media print {
-          .max-w-2xl { max-width: ${isThermal ? '80mm' : '100%'} !important; margin: 0 auto !important; }
+          .max-w-2xl { max-width: ${isThermal ? '72mm' : '100%'} !important; margin: 0 auto !important; }
           @page { 
             margin: 0; 
-            size: ${isThermal ? '80mm auto' : 'auto'};
+            size: auto;
           }
           /* Specific overrides for thermal font consistency */
           .thermal-only { display: ${isThermal ? 'block' : 'none'} !important; }
           .standard-only { display: ${isThermal ? 'none' : 'block'} !important; }
+          
+          html, body {
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: ${isThermal ? '72mm' : '100%'} !important;
+            overflow: visible !important;
+          }
         }
       `}</style>
         </div>
@@ -215,80 +224,85 @@ export default function SaleReceiptPage() {
 function ThermalReceipt({ sale, cashier }: { sale: SaleDetail, cashier: string }) {
     return (
         <div className={cn(
-            "font-mono text-black bg-white p-4 max-w-[80mm] mx-auto border-x border-dashed border-gray-200 shadow-xl print:shadow-none print:border-none",
+            "font-mono text-black bg-white p-2 w-[72mm] max-w-[72mm] mx-auto border border-dashed border-gray-200 shadow-xl print:shadow-none print:border-none",
             "block print:block thermal-only"
-        )}>
-            <div className="text-center mb-4">
-                <h1 className="text-base font-black uppercase">CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h1>
-                <p className="text-[10px] font-bold mt-1">NIF: 500253456</p>
-                <div className="border-t border-black border-dashed my-2" />
+        )}
+            style={{ boxSizing: 'border-box' }}
+        >
+            <div className="text-center mb-2">
+                <h1 className="text-sm font-bold uppercase leading-tight">CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h1>
+                <p className="text-[10px] font-bold mt-0.5">NIF: 500253456</p>
+                <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
                 <p className="text-[10px] font-bold">REÇU DE PHARMACIE</p>
                 <p className="text-[8px]">#{sale.id.slice(0, 8).toUpperCase()}</p>
             </div>
-            <div className="text-[10px] space-y-1 mb-4">
-                <div className="flex justify-between italic text-[11px]">
-                    <span>CAISSIER:</span>
-                    <span className="uppercase">{cashier}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Date:</span>
-                    <span>{format(new Date(sale.saleDate), 'dd/MM/yy HH:mm')}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span>Client:</span>
-                    <span className="font-bold">{sale.customerName || "CAS Comptant"}</span>
-                </div>
-            </div>
 
-            <div className="border-t border-black border-dashed my-2" />
-
-            <table className="w-full text-[10px]">
-                <thead className="text-left border-b border-black border-dashed">
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed', margin: '2px 0' }}>
+                <tbody>
                     <tr>
-                        <th className="py-1">ARTICLE</th>
-                        <th className="py-1 text-center">QTÉ</th>
-                        <th className="py-1 text-right">TOTAL</th>
+                        <td style={{ width: '35%', textAlign: 'left', fontStyle: 'italic' }}>CAISSIER:</td>
+                        <td style={{ width: '65%', textAlign: 'right', fontWeight: 'bold' }} className="uppercase">{cashier}</td>
+                    </tr>
+                    <tr>
+                        <td style={{ width: '35%', textAlign: 'left' }}>Date:</td>
+                        <td style={{ width: '65%', textAlign: 'right', fontWeight: 'bold' }}>{format(new Date(sale.saleDate), 'dd/MM/yy HH:mm')}</td>
+                    </tr>
+                    <tr>
+                        <td style={{ width: '35%', textAlign: 'left' }}>Client:</td>
+                        <td style={{ width: '65%', textAlign: 'right', fontWeight: 'bold' }}>{sale.customerName || "CAS Comptant"}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
+                <thead style={{ borderBottom: '1px dashed #000' }}>
+                    <tr>
+                        <th style={{ width: '60%', textAlign: 'left', paddingBottom: '2px', fontWeight: 'bold' }}>ARTICLE</th>
+                        <th style={{ width: '15%', textAlign: 'center', paddingBottom: '2px', fontWeight: 'bold' }}>QTÉ</th>
+                        <th style={{ width: '25%', textAlign: 'right', paddingBottom: '2px', fontWeight: 'bold' }}>TOTAL</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 divide-dashed">
+                <tbody style={{ borderBottom: '1px dashed #000' }}>
                     {sale.items.map((item) => (
                         <tr key={item.id}>
-                            <td className="py-2 pr-2">
-                                <div className="flex flex-col">
-                                    <span className="font-bold uppercase leading-tight">{item.medicine.name}</span>
-                                    <span className="text-[8px] italic">{item.medicine.genericName || "Unspecified"}</span>
-                                    <span className="text-[7px] text-gray-500">Lot: {item.lot.lotNumber}</span>
-                                </div>
+                            <td style={{ padding: '3px 0', verticalAlign: 'top', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                                <div style={{ fontWeight: 'bold', textTransform: 'uppercase', lineHeight: '1.2' }}>{item.medicine.name}</div>
+                                <div style={{ fontSize: '8px', fontStyle: 'italic' }}>{item.medicine.genericName || "Unspecified"}</div>
+                                <div style={{ fontSize: '7px', opacity: 0.6 }}>Lot: {item.lot.lotNumber}</div>
                             </td>
-                            <td className="py-2 text-center align-top">{parseFloat(item.quantity)}</td>
-                            <td className="py-2 text-right align-top">{parseFloat(item.totalPrice).toLocaleString()}</td>
+                            <td style={{ padding: '3px 0', textAlign: 'center', verticalAlign: 'top' }}>{parseFloat(item.quantity)}</td>
+                            <td style={{ padding: '3px 0', textAlign: 'right', verticalAlign: 'top' }}>{parseFloat(item.totalPrice).toLocaleString()}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
-            <div className="border-t-2 border-black border-double my-2" />
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed', margin: '4px 0' }}>
+                <tbody>
+                    <tr>
+                        <td style={{ width: '50%', textAlign: 'left' }}>TOTAL BRUT:</td>
+                        <td style={{ width: '50%', textAlign: 'right', fontWeight: 'bold' }}>{parseFloat(sale.subtotal).toLocaleString()} FBu</td>
+                    </tr>
+                    <tr style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                        <td style={{ width: '50%', textAlign: 'left', paddingTop: '4px', borderTop: '1px dashed #000' }}>NET A PAYER:</td>
+                        <td style={{ width: '50%', textAlign: 'right', paddingTop: '4px', borderTop: '1px dashed #000', fontWeight: '900' }}>{parseFloat(sale.totalAmount).toLocaleString()} FBu</td>
+                    </tr>
+                    <tr>
+                        <td colSpan={2} style={{ textAlign: 'center', fontSize: '9px', fontStyle: 'italic', fontWeight: 'bold', paddingTop: '4px' }}>
+                            Paiement: {sale.paymentMethod.toUpperCase()}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
 
-            <div className="space-y-1 py-2">
-                <div className="flex justify-between text-xs font-bold">
-                    <span>TOTAL BRUT:</span>
-                    <span>{parseFloat(sale.subtotal).toLocaleString()} FBu</span>
-                </div>
-                <div className="flex justify-between text-base font-black pt-2 border-t border-black border-dashed mt-2">
-                    <span>NET À PAYER:</span>
-                    <span>{parseFloat(sale.totalAmount).toLocaleString()} FBu</span>
-                </div>
-                <div className="text-center text-[9px] pt-4 italic font-bold">
-                    Paiement: {sale.paymentMethod.toUpperCase()}
-                </div>
-            </div>
+            <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
 
-            <div className="border-t border-black border-dashed my-4" />
-
-            <div className="text-center space-y-2 pb-8">
+            <div className="text-center space-y-1 pb-4">
                 <p className="text-[9px] font-bold">MERCI DE VOTRE CONFIANCE</p>
                 <p className="text-[7px] leading-tight">Les médicaments ne sont pas repris<br />ni échangés</p>
-                <div className="pt-4 opacity-10">***</div>
+                <div style={{ opacity: 0.1, fontSize: '8px' }}>***</div>
             </div>
         </div >
     )

@@ -9,6 +9,7 @@ export async function GET() {
       id: services.id,
       name: services.name,
       code: services.code,
+      type: services.type,
       description: services.description,
       isBillable: services.isBillable,
       isActive: services.isActive,

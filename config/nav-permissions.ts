@@ -17,10 +17,9 @@
 export type UserRole = "admin" | "doctor" | "cashier" | "pharmacist" | "user"
 
 export interface NavPermission {
-    /** Nav group key — must match the key used in AppSidebar */
     group: string
-    /** Allowed roles, or "*" for unrestricted */
     roles: UserRole[] | "*"
+    items?: Record<string, UserRole[] | "*">
 }
 
 export const NAV_PERMISSIONS: NavPermission[] = [
@@ -56,10 +55,12 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
     {
         label: "Clinical",
         items: [
+            { title: "Consultations", href: "/consultations", iconName: "ClipboardList" },
             { title: "Departments", href: "/departments", iconName: "Building2" },
             { title: "Specialties", href: "/specialties", iconName: "Stethoscope" },
             { title: "Services", href: "/services", iconName: "Layers" },
             { title: "Medical Acts", href: "/acts", iconName: "Activity" },
+            { title: "Doctors", href: "/doctors", iconName: "User" }
         ]
     },
     {
@@ -120,11 +121,21 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
 ]
 
 /**
- * Checks if a given role has access to a nav group.
+ * Checks if a given role has access to a nav group or menu item.
+ * For items, use key format "GroupLabel:ItemTitle".
+ * If no item-level override exists, falls back to the group's permissions.
  */
-export function canAccessGroup(group: string, role: string): boolean {
+export function canAccessGroup(key: string, role: string): boolean {
+    const [group, item] = key.includes(":") ? key.split(":") : [key, undefined]
     const permission = NAV_PERMISSIONS.find((p) => p.group === group)
     if (!permission) return false
+
+    if (item && permission.items?.[item]) {
+        const itemRoles = permission.items[item]
+        if (itemRoles === "*") return true
+        return itemRoles.includes(role as UserRole)
+    }
+
     if (permission.roles === "*") return true
-    return (permission.roles as string[]).includes(role)
+    return (permission.roles as UserRole[]).includes(role as UserRole)
 }

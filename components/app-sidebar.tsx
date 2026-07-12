@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as Icons from "lucide-react"
@@ -25,16 +24,19 @@ import { useCurrentUser } from "@/hooks/use-current-user"
 function NavGroup({
   label,
   items,
-  checkAccess
 }: {
   label: string;
   items: any[];
-  checkAccess: (label: string, itemTitle?: string) => boolean
 }) {
   const pathname = usePathname()
+  const { user } = useCurrentUser()
+  const role = user?.role ?? "user"
 
-  // Filter items based on access
-  const visibleItems = items.filter(item => checkAccess(label, item.title))
+  const visibleItems = items.filter(item => {
+    const itemKey = `${label}:${item.title}`
+    return canAccessGroup(itemKey, role)
+  })
+
   if (visibleItems.length === 0) return null
 
   return (
@@ -68,51 +70,6 @@ function NavGroup({
 export function AppSidebar() {
   const { user, loading } = useCurrentUser()
   const role = user?.role ?? "user"
-  const [dbPermissions, setDbPermissions] = useState<Record<string, string[] | "*">>({})
-  const [loadingPerms, setLoadingPerms] = useState(true)
-
-  useEffect(() => {
-    async function fetchPerms() {
-      try {
-        const res = await fetch("/api/system/permissions")
-        const json = await res.json()
-        if (res.ok) {
-          const mapping: Record<string, string[] | "*"> = {}
-          json.data.forEach((p: any) => {
-            mapping[p.group] = p.roles === "*" ? "*" : p.roles.split(",")
-          })
-          setDbPermissions(mapping)
-        }
-      } catch (err) {
-        console.error("Failed to fetch menu permissions", err)
-      } finally {
-        setLoadingPerms(false)
-      }
-    }
-    fetchPerms()
-  }, [])
-
-  function checkAccess(groupLabel: string, itemTitle?: string) {
-    const key = itemTitle ? `${groupLabel}:${itemTitle}` : groupLabel
-
-    // If we have DB permissions for this exact key, use them
-    if (dbPermissions[key]) {
-      const perms = dbPermissions[key]
-      if (perms === "*") return true
-      return perms.includes(role)
-    }
-
-    // Special case: if we are checking an item and it has no DB record, 
-    // it defaults to the group permission or static config.
-    if (itemTitle) {
-      // Just return true for items if no specific record exists (defaulting to group perms)
-      // because the group filtering happens at the parent.
-      return true
-    }
-
-    // Fallback for Groups only
-    return canAccessGroup(groupLabel, role)
-  }
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
@@ -129,10 +86,10 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {(!loading && !loadingPerms) &&
-          NAV_GROUPS_CONFIG.filter(({ label }) => checkAccess(label)).map(
+        {!loading &&
+          NAV_GROUPS_CONFIG.filter(({ label }) => canAccessGroup(label, role)).map(
             ({ label, items }) => (
-              <NavGroup key={label} label={label} items={items} checkAccess={checkAccess} />
+              <NavGroup key={label} label={label} items={items} />
             )
           )}
       </SidebarContent>

@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   text,
@@ -17,6 +18,91 @@ import { relations } from 'drizzle-orm'
 // ============================================================
 // DB SCHEMA
 // ============================================================
+
+// ============================================================
+// SERVICE TYPE ENUM
+// ============================================================
+export const serviceTypeEnum = pgEnum("service_type", [
+  "laboratory",
+  "radiology",
+  "cardiology",
+  "neurology",
+  "oncology",
+  "orthopedics",
+  "pediatrics",
+  "obstetrics_gynecology",
+  "dermatology",
+  "ophthalmology",
+  "otolaryngology",
+  "urology",
+  "gastroenterology",
+  "pulmonology",
+  "psychiatry",
+  "anesthesiology",
+  "critical_care",
+  "emergency_medicine",
+  "general_surgery",
+  "laparoscopic_surgery",
+  "plastic_surgery",
+  "pathology",
+  "microbiology",
+  "mammography",
+  "echocardiography",
+  "mri",
+  "ct_scan",
+  "xray",
+  "physiotherapy",
+  "occupational_therapy",
+  "pharmacy",
+  "general_dentistry",
+  "oral_surgery",
+  "consultation",
+  "dialysis",
+  "chemotherapy",
+  "radiation_therapy",
+  "accommodation",
+  "other",
+])
+
+// ============================================================
+// LAB TEST TYPE ENUM
+// ============================================================
+export const labTestTypeEnum = pgEnum("lab_test_type", [
+  "hematology",
+  "chemistry",
+  "microbiology",
+  "immunology",
+  "serology",
+  "urinalysis",
+  "parasitology",
+  "histopathology",
+  "molecular",
+  "endocrinology",
+  "other",
+])
+
+// ============================================================
+// LAB ORDER STATUS ENUM
+// ============================================================
+export const labOrderStatusEnum = pgEnum("lab_order_status", [
+  "pending",
+  "sample_collected",
+  "in_analysis",
+  "results_entered",
+  "validated",
+  "cancelled",
+])
+
+// ============================================================
+// RESULT INTERPRETATION ENUM
+// ============================================================
+export const resultInterpretationEnum = pgEnum("result_interpretation", [
+  "normal",
+  "low",
+  "high",
+  "critical_low",
+  "critical_high",
+])
 
 
 export const departments = pgTable(
@@ -60,29 +146,6 @@ export const specialties = pgTable(
 // ============================================================
 // DOCTORS TABLE
 // ============================================================
-export const doctors = pgTable(
-  'doctors',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    firstName: varchar('first_name', { length: 100 }).notNull(),
-    lastName: varchar('last_name', { length: 100 }).notNull(),
-    specialtyId: uuid('specialty_id')
-      .notNull()
-      .references(() => specialties.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
-    phone: varchar('phone', { length: 20 }).notNull().unique(),
-    email: varchar('email', { length: 255 }).unique(),
-    licenseNumber: varchar('license_number', { length: 100 }).unique(),
-    isActive: boolean('is_active').notNull().default(true),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    specialtyIdIdx: index('doctors_specialty_id_idx').on(table.specialtyId),
-    phoneIdx: index('doctors_phone_idx').on(table.phone),
-    isActiveIdx: index('doctors_is_active_idx').on(table.isActive),
-  })
-)
-
 // ============================================================
 // INSURANCES TABLE
 // ============================================================
@@ -112,6 +175,7 @@ export const patients = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     patientNumber: serial('patient_number'),
+    patientRef: varchar('patient_ref', { length: 50 }).default('PT-PENDING'),
     firstName: varchar('first_name', { length: 100 }).notNull(),
     lastName: varchar('last_name', { length: 100 }).notNull(),
     dateOfBirth: varchar('date_of_birth', { length: 10 }).notNull(),
@@ -186,6 +250,10 @@ export const users = pgTable(
     passwordHash: varchar('password_hash', { length: 255 }).notNull(),
     fullName: varchar('full_name', { length: 255 }),
     role: varchar('role', { length: 50 }).notNull().default('user'),
+    specialtyId: uuid('specialty_id').references(() => specialties.id, { onDelete: 'set null' }),
+    phone: varchar('phone', { length: 20 }),
+    email: varchar('email', { length: 255 }),
+    licenseNumber: varchar('license_number', { length: 100 }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -194,22 +262,7 @@ export const users = pgTable(
     usernameIdx: index('users_username_idx').on(table.username),
     roleIdx: index('users_role_idx').on(table.role),
     isActiveIdx: index('users_is_active_idx').on(table.isActive),
-  })
-)
-
-// ============================================================
-// MENU PERMISSIONS TABLE
-// ============================================================
-export const menuPermissions = pgTable(
-  'menu_permissions',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    group: varchar('group', { length: 255 }).notNull().unique(), // e.g. "Clinical"
-    roles: text('roles').notNull().default('*'), // Stores "admin,user" or "*"
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    groupIdx: index('menu_permissions_group_idx').on(table.group),
+    specialtyIdIdx: index('users_specialty_id_idx').on(table.specialtyId),
   })
 )
 
@@ -241,6 +294,7 @@ export const services = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 255 }).notNull().unique(),
     code: varchar('code', { length: 50 }).notNull().unique(),
+    type: serviceTypeEnum('type').notNull().default('other'),
     description: text('description'),
     isBillable: boolean('is_billable').notNull().default(true),
     isActive: boolean('is_active').notNull().default(true),
@@ -467,6 +521,7 @@ export const payments = pgTable(
     paymentMethod: varchar('payment_method', { length: 50 }).notNull(), // cash, card, check, insurance, transfer
     referenceNumber: varchar('reference_number', { length: 100 }),
     notes: text('notes'),
+    cashSessionId: uuid('cash_session_id').references(() => cashSessions.id, { onDelete: 'set null', onUpdate: 'cascade' }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -474,6 +529,7 @@ export const payments = pgTable(
     invoiceIdIdx: index('payments_invoice_id_idx').on(table.invoiceId),
     patientIdIdx: index('payments_patient_id_idx').on(table.patientId),
     paymentMethodIdx: index('payments_payment_method_idx').on(table.paymentMethod),
+    cashSessionIdIdx: index('payments_cash_session_id_idx').on(table.cashSessionId),
   })
 )
 
@@ -513,6 +569,8 @@ export const cashSessions = pgTable(
     status: varchar('status', { length: 20 }).notNull().default('open'), // open, closed
     openedBy: uuid('opened_by').notNull().references(() => users.id),
     closedBy: uuid('closed_by').references(() => users.id),
+    openedAt: timestamp('opened_at').notNull().defaultNow(),
+    closedAt: timestamp('closed_at'),
     expectedBalance: decimal('expected_balance', { precision: 10, scale: 2 }).notNull().default('0'),
     physicalBalance: decimal('physical_balance', { precision: 10, scale: 2 }),
     notes: text('notes'),
@@ -585,7 +643,7 @@ export const appointments = pgTable(
 
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => doctors.id, { onDelete: 'restrict' }),
+      .references(() => users.id, { onDelete: 'restrict' }),
 
     appointmentDate: timestamp('appointment_date').notNull(),
 
@@ -617,21 +675,42 @@ export const visits = pgTable(
 
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => doctors.id),
+      .references(() => users.id),
 
     appointmentId: uuid('appointment_id')
       .references(() => appointments.id),
 
     visitDate: timestamp('visit_date').notNull().defaultNow(),
 
+    consultationNumber: varchar('consultation_number', { length: 50 }).unique(),
+    status: varchar('status', { length: 30 }).notNull().default('waiting'),
+    // waiting, in_consultation, in_exam, in_lab, in_radiology, in_pharmacy, hospitalized, completed, cancelled
+
+    consultationType: varchar('consultation_type', { length: 50 }).notNull().default('general'),
+    // general, pediatric, ophthalmology, gynecology
+
     chiefComplaint: text('chief_complaint'),
+    symptoms: text('symptoms'),
+    symptomsDuration: varchar('symptoms_duration', { length: 100 }),
+    painLevel: numeric('pain_level'),
+    onsetDate: timestamp('onset_date'),
+
+    medicalHistory: text('medical_history'),
+    surgicalHistory: text('surgical_history'),
+    familyHistory: text('family_history'),
+    allergies: text('allergies'),
+    currentMedications: text('current_medications'),
+
     notes: text('notes'),
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
     patientIdx: index('visits_patient_idx').on(table.patientId),
     doctorIdx: index('visits_doctor_idx').on(table.doctorId),
+    statusIdx: index('visits_status_idx').on(table.status),
+    consultationNumberIdx: index('visits_consultation_number_idx').on(table.consultationNumber),
   })
 )
 
@@ -709,8 +788,12 @@ export const triage = pgTable(
     bloodPressure: varchar('blood_pressure', { length: 20 }),
     heartRate: numeric('heart_rate'),
     respiratoryRate: numeric('respiratory_rate'),
+    oxygenSaturation: numeric('oxygen_saturation'),
     weight: decimal('weight', { precision: 5, scale: 2 }),
     height: decimal('height', { precision: 5, scale: 2 }),
+    bmi: decimal('bmi', { precision: 5, scale: 2 }),
+    painLevel: numeric('pain_level'),
+    notes: text('notes'),
 
     createdAt: timestamp('created_at').defaultNow(),
   },
@@ -732,8 +815,12 @@ export const diagnoses = pgTable(
       .notNull()
       .references(() => visits.id, { onDelete: 'cascade' }),
 
+    diagnosisType: varchar('diagnosis_type', { length: 30 }).notNull().default('principal'),
+    // principal, secondary, provisional, final
+
     diagnosisCode: varchar('diagnosis_code', { length: 50 }),
     diagnosisName: varchar('diagnosis_name', { length: 255 }),
+    icdCode: varchar('icd_code', { length: 20 }),
 
     notes: text('notes'),
 
@@ -759,7 +846,7 @@ export const prescriptions = pgTable(
 
     doctorId: uuid('doctor_id')
       .notNull()
-      .references(() => doctors.id),
+      .references(() => users.id),
 
     notes: text('notes'),
 
@@ -963,6 +1050,321 @@ export const dispensationItems = pgTable(
 )
 
 // ============================================================
+// MEDICAL DECISIONS TABLE
+// ============================================================
+export const medicalDecisions = pgTable(
+  'medical_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    visitId: uuid('visit_id')
+      .notNull()
+      .references(() => visits.id, { onDelete: 'cascade' }),
+
+    decision: varchar('decision', { length: 50 }).notNull(),
+    // return_home, follow_up, refer_to_specialist, hospitalization, surgery, emergency, refer_to_other
+
+    specialistId: uuid('specialist_id')
+      .references(() => users.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+
+    followUpDate: timestamp('follow_up_date'),
+    reason: text('reason'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    visitIdx: index('medical_decisions_visit_idx').on(table.visitId),
+  })
+)
+
+// ============================================================
+// LAB TEST CATALOG
+// ============================================================
+export const labTests = pgTable(
+  'lab_tests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    serviceId: uuid('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+    code: varchar('code', { length: 50 }).notNull().unique(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    testType: labTestTypeEnum('test_type').notNull(),
+    price: numeric('price', { precision: 12, scale: 2 }).notNull().default('0'),
+    turnaroundTimeHours: numeric('turnaround_time_hours', { precision: 5, scale: 1 }).notNull().default('24'),
+    instructions: text('instructions'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    codeIdx: index('lab_tests_code_idx').on(table.code),
+    serviceIdIdx: index('lab_tests_service_id_idx').on(table.serviceId),
+    isActiveIdx: index('lab_tests_is_active_idx').on(table.isActive),
+  })
+)
+
+// ============================================================
+// LAB TEST PARAMETERS
+// ============================================================
+export const labTestParameters = pgTable(
+  'lab_test_parameters',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    labTestId: uuid('lab_test_id')
+      .notNull()
+      .references(() => labTests.id, { onDelete: 'cascade' }),
+    parameterCode: varchar('parameter_code', { length: 50 }).notNull(),
+    parameterName: varchar('parameter_name', { length: 255 }).notNull(),
+    unit: varchar('unit', { length: 50 }).notNull(),
+    referenceRangeLow: numeric('reference_range_low', { precision: 12, scale: 3 }),
+    referenceRangeHigh: numeric('reference_range_high', { precision: 12, scale: 3 }),
+    referenceRangeText: text('reference_range_text'),
+    maleRefRangeLow: numeric('male_ref_range_low', { precision: 12, scale: 3 }),
+    maleRefRangeHigh: numeric('male_ref_range_high', { precision: 12, scale: 3 }),
+    femaleRefRangeLow: numeric('female_ref_range_low', { precision: 12, scale: 3 }),
+    femaleRefRangeHigh: numeric('female_ref_range_high', { precision: 12, scale: 3 }),
+    sortOrder: numeric('sort_order', { precision: 3, scale: 0 }).notNull().default('0'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    labTestIdIdx: index('lab_test_parameters_lab_test_id_idx').on(table.labTestId),
+    isActiveIdx: index('lab_test_parameters_is_active_idx').on(table.isActive),
+  })
+)
+
+// ============================================================
+// LAB ORDERS
+// Maps a clinical exam_request (lab type) to a structured lab workflow.
+// ============================================================
+export const labOrders = pgTable(
+  'lab_orders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderNumber: varchar('order_number', { length: 50 }).notNull().unique(),
+
+    visitId: uuid('visit_id')
+      .references(() => visits.id, { onDelete: 'cascade' }),
+
+    examRequestId: uuid('exam_request_id')
+      .references(() => examRequests.id, { onDelete: 'set null' }),
+
+    labTestId: uuid('lab_test_id')
+      .notNull()
+      .references(() => labTests.id, { onDelete: 'restrict' }),
+
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id),
+
+    orderedBy: uuid('ordered_by')
+      .notNull()
+      .references(() => users.id),
+
+    status: labOrderStatusEnum('status').notNull().default('pending'),
+
+    priority: varchar('priority', { length: 30 }).notNull().default('normal'),
+
+    sampledAt: timestamp('sampled_at'),
+    sampledBy: uuid('sampled_by').references(() => users.id, { onDelete: 'set null' }),
+
+    notes: text('notes'),
+    clinicalNotes: text('clinical_notes'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    orderNumberIdx: index('lab_orders_order_number_idx').on(table.orderNumber),
+    visitIdIdx: index('lab_orders_visit_id_idx').on(table.visitId),
+    examRequestIdIdx: index('lab_orders_exam_request_id_idx').on(table.examRequestId),
+    labTestIdIdx: index('lab_orders_lab_test_id_idx').on(table.labTestId),
+    statusIdx: index('lab_orders_status_idx').on(table.status),
+    patientIdIdx: index('lab_orders_patient_id_idx').on(table.patientId),
+  })
+)
+
+// ============================================================
+// LAB RESULTS HEADER
+// ============================================================
+export const labResults = pgTable(
+  'lab_results',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    labOrderId: uuid('lab_order_id')
+      .notNull()
+      .references(() => labOrders.id, { onDelete: 'cascade' })
+      .unique(),
+
+    recordedBy: uuid('recorded_by')
+      .notNull()
+      .references(() => users.id),
+
+    recordedAt: timestamp('recorded_at').notNull().defaultNow(),
+
+    notes: text('notes'),
+
+    isVerified: boolean('is_verified').notNull().default(false),
+    verifiedBy: uuid('verified_by').references(() => users.id, { onDelete: 'set null' }),
+    verifiedAt: timestamp('verified_at'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    labOrderIdIdx: index('lab_results_lab_order_id_idx').on(table.labOrderId),
+    verifiedByIdx: index('lab_results_verified_by_idx').on(table.verifiedBy),
+  })
+)
+
+// ============================================================
+// LAB RESULT VALUES
+// ============================================================
+export const labResultValues = pgTable(
+  'lab_result_values',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    labResultId: uuid('lab_result_id')
+      .notNull()
+      .references(() => labResults.id, { onDelete: 'cascade' }),
+
+    labTestParameterId: uuid('lab_test_parameter_id')
+      .notNull()
+      .references(() => labTestParameters.id, { onDelete: 'restrict' }),
+
+    value: text('value').notNull(),
+    numericValue: numeric('numeric_value', { precision: 12, scale: 3 }),
+
+    unit: varchar('unit', { length: 50 }),
+
+    interpretation: resultInterpretationEnum('interpretation'),
+
+    flagged: boolean('flagged').notNull().default(false),
+    referenceRangeUsed: text('reference_range_used'),
+    comment: text('comment'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    labResultIdIdx: index('lab_result_values_lab_result_id_idx').on(table.labResultId),
+    parameterIdIdx: index('lab_result_values_parameter_id_idx').on(table.labTestParameterId),
+  })
+)
+
+// ============================================================
+// EXAM REQUESTS TABLE
+// ============================================================
+export const examRequests = pgTable(
+  'exam_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    visitId: uuid('visit_id')
+      .notNull()
+      .references(() => visits.id, { onDelete: 'cascade' }),
+
+    examType: varchar('exam_type', { length: 30 }).notNull(),
+    // lab, imaging
+
+    examName: varchar('exam_name', { length: 255 }).notNull(),
+    // For lab: NFS, Glycémie, CRP, ECBU, Sérologie, etc.
+    // For imaging: Radiographie, Échographie, Scanner, IRM, ECG, etc.
+
+    priority: varchar('priority', { length: 30 }).notNull().default('normal'),
+    // normal, urgent, very_urgent
+
+    status: varchar('status', { length: 30 }).notNull().default('pending'),
+    // pending, in_progress, completed, validated
+
+    requestedBy: uuid('requested_by')
+      .references(() => users.id, { onDelete: 'set null' }),
+
+    notes: text('notes'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    visitIdx: index('exam_requests_visit_idx').on(table.visitId),
+    statusIdx: index('exam_requests_status_idx').on(table.status),
+  })
+)
+
+// ============================================================
+// EXAM RESULTS TABLE
+// ============================================================
+export const examResults = pgTable(
+  'exam_results',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    examRequestId: uuid('exam_request_id')
+      .notNull()
+      .references(() => examRequests.id, { onDelete: 'cascade' }),
+
+    resultDate: timestamp('result_date').notNull().defaultNow(),
+    resultText: text('result_text'),
+    fileUrl: text('file_url'),
+    notes: text('notes'),
+
+    validatedBy: uuid('validated_by')
+      .references(() => users.id, { onDelete: 'set null' }),
+
+    validatedAt: timestamp('validated_at'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    examRequestIdx: index('exam_results_exam_request_idx').on(table.examRequestId),
+  })
+)
+
+// ============================================================
+// HOSPITALIZATIONS TABLE
+// ============================================================
+export const hospitalizations = pgTable(
+  'hospitalizations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    visitId: uuid('visit_id')
+      .notNull()
+      .references(() => visits.id, { onDelete: 'cascade' }),
+
+    patientId: uuid('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'cascade' }),
+
+    departmentId: uuid('department_id')
+      .references(() => departments.id, { onDelete: 'set null' }),
+
+    doctorId: uuid('doctor_id')
+      .references(() => users.id, { onDelete: 'set null' }),
+
+    admissionDate: timestamp('admission_date').notNull().defaultNow(),
+    dischargeDate: timestamp('discharge_date'),
+
+    roomNumber: varchar('room_number', { length: 50 }),
+    bedNumber: varchar('bed_number', { length: 50 }),
+
+    status: varchar('status', { length: 30 }).notNull().default('admitted'),
+    // admitted, discharged, transferred
+
+    reason: text('reason'),
+    notes: text('notes'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    visitIdx: index('hospitalizations_visit_idx').on(table.visitId),
+    patientIdx: index('hospitalizations_patient_idx').on(table.patientId),
+    statusIdx: index('hospitalizations_status_idx').on(table.status),
+  })
+)
+
+// ============================================================
 // PHARMACY SALES TABLES
 // ============================================================
 export const pharmacySales = pgTable(
@@ -1136,6 +1538,32 @@ export const partnershipServiceRules = pgTable(
 )
 
 // ============================================================
+// CLINIC SETTINGS TABLE
+// ============================================================
+export const clinicSettings = pgTable(
+  'clinic_settings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 255 }).notNull(),
+    nif: varchar('nif', { length: 100 }),
+    rc: varchar('rc', { length: 100 }),
+    formeJuridique: varchar('forme_juridique', { length: 100 }),
+    address: text('address'),
+    city: varchar('city', { length: 100 }),
+    commune: varchar('commune', { length: 100 }),
+    province: varchar('province', { length: 100 }),
+    phone: varchar('phone', { length: 50 }),
+    email: varchar('email', { length: 255 }),
+    website: varchar('website', { length: 255 }),
+    logoUrl: text('logo_url'),
+    centreFiscal: varchar('centre_fiscal', { length: 100 }),
+    slogan: varchar('slogan', { length: 255 }),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  }
+)
+
+// ============================================================
 // PARTNERSHIP VISIT LOGS (Track actual usage)
 // ============================================================
 export const partnershipVisitLogs = pgTable(
@@ -1237,15 +1665,7 @@ export const specialtiesRelations = relations(specialties, ({ one, many }) => ({
     fields: [specialties.departmentId],
     references: [departments.id],
   }),
-  doctors: many(doctors),
   medicalActs: many(medicalActs),
-}))
-
-export const doctorsRelations = relations(doctors, ({ one }) => ({
-  specialty: one(specialties, {
-    fields: [doctors.specialtyId],
-    references: [specialties.id],
-  }),
 }))
 
 export const insurancesRelations = relations(insurances, ({ many }) => ({
@@ -1355,17 +1775,22 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.patientId],
     references: [patients.id],
   }),
+  cashSession: one(cashSessions, {
+    fields: [payments.cashSessionId],
+    references: [cashSessions.id],
+  }),
 }))
 
 export const cashRegisterRelations = relations(cashRegister, ({ many }) => ({
   sessions: many(cashSessions),
 }))
 
-export const cashSessionsRelations = relations(cashSessions, ({ one }) => ({
+export const cashSessionsRelations = relations(cashSessions, ({ one, many }) => ({
   cashRegister: one(cashRegister, {
     fields: [cashSessions.cashRegisterId],
     references: [cashRegister.id],
   }),
+  payments: many(payments),
 }))
 
 export const expensesRelations = relations(expenses, ({ one }) => ({
@@ -1377,8 +1802,12 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
 
 export const accountingJournalRelations = relations(accountingJournal, ({ }) => ({}))
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
+  specialty: one(specialties, {
+    fields: [users.specialtyId],
+    references: [specialties.id],
+  }),
 }))
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -1559,5 +1988,192 @@ export const partnershipDiscountHistoryRelations = relations(partnershipDiscount
   rule: one(partnershipServiceRules, {
     fields: [partnershipDiscountHistory.ruleId],
     references: [partnershipServiceRules.id],
+  }),
+}))
+
+export const visitsRelations = relations(visits, ({ one, many }) => ({
+  patient: one(patients, {
+    fields: [visits.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(users, {
+    fields: [visits.doctorId],
+    references: [users.id],
+  }),
+  appointment: one(appointments, {
+    fields: [visits.appointmentId],
+    references: [appointments.id],
+  }),
+  triage: many(triage),
+  diagnoses: many(diagnoses),
+  prescriptions: many(prescriptions),
+  medicalDecisions: many(medicalDecisions),
+  examRequests: many(examRequests),
+  hospitalizations: many(hospitalizations),
+}))
+
+export const triageRelations = relations(triage, ({ one }) => ({
+  visit: one(visits, {
+    fields: [triage.visitId],
+    references: [visits.id],
+  }),
+}))
+
+export const diagnosesRelations = relations(diagnoses, ({ one }) => ({
+  visit: one(visits, {
+    fields: [diagnoses.visitId],
+    references: [visits.id],
+  }),
+}))
+
+export const prescriptionsRelations = relations(prescriptions, ({ one, many }) => ({
+  visit: one(visits, {
+    fields: [prescriptions.visitId],
+    references: [visits.id],
+  }),
+  doctor: one(users, {
+    fields: [prescriptions.doctorId],
+    references: [users.id],
+  }),
+  items: many(prescriptionItems),
+}))
+
+export const prescriptionItemsRelations = relations(prescriptionItems, ({ one }) => ({
+  prescription: one(prescriptions, {
+    fields: [prescriptionItems.prescriptionId],
+    references: [prescriptions.id],
+  }),
+}))
+
+export const medicalDecisionsRelations = relations(medicalDecisions, ({ one }) => ({
+  visit: one(visits, {
+    fields: [medicalDecisions.visitId],
+    references: [visits.id],
+  }),
+  specialist: one(users, {
+    fields: [medicalDecisions.specialistId],
+    references: [users.id],
+  }),
+}))
+
+export const examRequestsRelations = relations(examRequests, ({ one, many }) => ({
+  visit: one(visits, {
+    fields: [examRequests.visitId],
+    references: [visits.id],
+  }),
+  doctor: one(users, {
+    fields: [examRequests.requestedBy],
+    references: [users.id],
+  }),
+  results: many(examResults),
+}))
+
+export const examResultsRelations = relations(examResults, ({ one }) => ({
+  examRequest: one(examRequests, {
+    fields: [examResults.examRequestId],
+    references: [examRequests.id],
+  }),
+  validator: one(users, {
+    fields: [examResults.validatedBy],
+    references: [users.id],
+  }),
+}))
+
+// ============================================================
+// LAB RELATIONS
+// ============================================================
+
+export const labTestsRelations = relations(labTests, ({ one, many }) => ({
+  service: one(services, {
+    fields: [labTests.serviceId],
+    references: [services.id],
+  }),
+  parameters: many(labTestParameters),
+  orders: many(labOrders),
+}))
+
+export const labTestParametersRelations = relations(labTestParameters, ({ one, many }) => ({
+  labTest: one(labTests, {
+    fields: [labTestParameters.labTestId],
+    references: [labTests.id],
+  }),
+  resultValues: many(labResultValues),
+}))
+
+export const labOrdersRelations = relations(labOrders, ({ one, many }) => ({
+  visit: one(visits, {
+    fields: [labOrders.visitId],
+    references: [visits.id],
+  }),
+  examRequest: one(examRequests, {
+    fields: [labOrders.examRequestId],
+    references: [examRequests.id],
+  }),
+  labTest: one(labTests, {
+    fields: [labOrders.labTestId],
+    references: [labTests.id],
+  }),
+  patient: one(patients, {
+    fields: [labOrders.patientId],
+    references: [patients.id],
+  }),
+  orderer: one(users, {
+    fields: [labOrders.orderedBy],
+    references: [users.id],
+  }),
+  sampler: one(users, {
+    fields: [labOrders.sampledBy],
+    references: [users.id],
+  }),
+  result: one(labResults, {
+    fields: [labOrders.id],
+    references: [labResults.labOrderId],
+  }),
+}))
+
+export const labResultsRelations = relations(labResults, ({ one, many }) => ({
+  labOrder: one(labOrders, {
+    fields: [labResults.labOrderId],
+    references: [labOrders.id],
+  }),
+  recordedByUser: one(users, {
+    fields: [labResults.recordedBy],
+    references: [users.id],
+  }),
+  verifier: one(users, {
+    fields: [labResults.verifiedBy],
+    references: [users.id],
+  }),
+  values: many(labResultValues),
+}))
+
+export const labResultValuesRelations = relations(labResultValues, ({ one }) => ({
+  labResult: one(labResults, {
+    fields: [labResultValues.labResultId],
+    references: [labResults.id],
+  }),
+  parameter: one(labTestParameters, {
+    fields: [labResultValues.labTestParameterId],
+    references: [labTestParameters.id],
+  }),
+}))
+
+
+export const hospitalizationsRelations = relations(hospitalizations, ({ one }) => ({
+  visit: one(visits, {
+    fields: [hospitalizations.visitId],
+    references: [visits.id],
+  }),
+  patient: one(patients, {
+    fields: [hospitalizations.patientId],
+    references: [patients.id],
+  }),
+  department: one(departments, {
+    fields: [hospitalizations.departmentId],
+    references: [departments.id],
+  }),
+  doctor: one(users, {
+    fields: [hospitalizations.doctorId],
+    references: [users.id],
   }),
 }))

@@ -10,12 +10,13 @@ export async function PATCH(
     try {
         const { id } = await params
         const body = await req.json()
-        const { name, code, description, isBillable, isActive } = body
+        const { name, code, description, type, isBillable, isActive } = body
 
         const updateData: any = {}
         if (name !== undefined) updateData.name = name
         if (code !== undefined) updateData.code = code.toUpperCase()
         if (description !== undefined) updateData.description = description
+        if (type !== undefined) updateData.type = type
         if (isBillable !== undefined) updateData.isBillable = isBillable
         if (isActive !== undefined) updateData.isActive = isActive
 

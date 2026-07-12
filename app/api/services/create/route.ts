@@ -6,7 +6,7 @@ import { sql } from 'drizzle-orm'
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { name, description, isBillable } = body
+        const { name, description, isBillable, type } = body
 
         if (!name) {
             return NextResponse.json({
@@ -32,6 +32,7 @@ export async function POST(req: Request) {
             name,
             code: nextCode,
             description,
+            type: type ?? 'other',
             isBillable: isBillable ?? true,
             isActive: true,
         }).returning()

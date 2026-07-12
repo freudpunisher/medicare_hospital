@@ -182,43 +182,108 @@ export default function InvoicesPage() {
                 <head>
                     <title>Reçu - ${invoiceData.invoiceNumber}</title>
                     <style>
-                        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        html { height: auto; }
                         body {
                             font-family: 'Courier New', Courier, monospace;
-                            font-size: 15px;
-                            font-weight: 700;
+                            font-size: 11px;
+                            font-weight: 400;
                             background: #fff;
-                            width: 100mm;
-                            padding: 4mm;
-                            margin: 0 auto;
-                            line-height: 1.2;
+                            width: 72mm;
+                            max-width: 72mm;
+                            padding: 0;
+                            margin: 0;
+                            line-height: 1.25;
                         }
-                        .flex { display: flex; }
-                        .flex-col { display: flex; flex-direction: column; }
-                        .items-center { align-items: center; }
-                        .justify-between { justify-content: space-between; }
-                        .w-full { width: 100%; }
+                        .receipt-container {
+                            width: 72mm;
+                            padding: 2mm;
+                            margin: 0;
+                            background: #fff;
+                        }
                         .text-center { text-align: center; }
                         .text-right { text-align: right; }
-                        .font-bold { font-weight: bold; }
+                        .font-bold { font-weight: 700; }
                         .font-black { font-weight: 900; }
                         .uppercase { text-transform: uppercase; }
                         .italic { font-style: italic; }
-                        .my-2 { margin-top: 10px; margin-bottom: 10px; }
-                        .mb-2 { margin-bottom: 10px; }
-                        .border-t { border-top: 1.5px solid #000; }
-                        .border-b { border-bottom: 1.5px solid #000; }
-                        .border-dashed { border-style: dashed; border-top-width: 1.5px; }
-                        .table { display: table; width: 100%; }
-                        .table-row { display: table-row; }
-                        .table-cell { display: table-cell; padding-top: 6px; padding-bottom: 6px; }
+                        .mt-1 { margin-top: 2px; }
+                        .mb-2 { margin-bottom: 4px; }
+                        
+                        hr {
+                            border: 0;
+                            border-top: 1px dashed #000;
+                            margin: 4px 0;
+                            height: 0;
+                        }
+                        
+                        .info-table, .receipt-table, .total-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 3px 0;
+                            table-layout: fixed;
+                        }
+                        .info-table td, .receipt-table td, .receipt-table th, .total-table td {
+                            font-family: 'Courier New', Courier, monospace;
+                            font-size: 11px;
+                            line-height: 1.25;
+                            padding: 1px 0;
+                            vertical-align: top;
+                        }
+                        
+                        .info-table td.lbl {
+                            text-align: left;
+                            width: 32%;
+                        }
+                        .info-table td.val {
+                            text-align: right;
+                            width: 68%;
+                            font-weight: bold;
+                            word-break: break-word;
+                            overflow-wrap: break-word;
+                        }
+                        
+                        .receipt-table th {
+                            border-bottom: 1px solid #000;
+                            font-weight: 700;
+                        }
+                        .receipt-table td.act-name {
+                            word-break: break-word;
+                            overflow-wrap: break-word;
+                        }
+                        
+                        .total-table td.lbl {
+                            text-align: left;
+                            width: 50%;
+                        }
+                        .total-table td.val {
+                            text-align: right;
+                            width: 50%;
+                            font-weight: bold;
+                        }
+                        .total-table tr.pay-row td {
+                            font-size: 15px;
+                            font-weight: 900;
+                            border-top: 1px solid #000;
+                            border-bottom: 1px solid #000;
+                            padding: 3px 0;
+                        }
+                        #print-content { display: block; width: 100%; }
                         @media print {
-                            body { width: 100mm; margin: 0; padding: 4mm; }
-                            @page { size: 100mm auto; margin: 0; }
+                            @page { size: auto; margin: 0mm; }
+                            html, body {
+                                height: auto !important;
+                                min-height: 0 !important;
+                                margin: 0 !important;
+                                padding: 0 !important;
+                                width: 72mm !important;
+                                overflow: visible !important;
+                            }
+                            #print-content { page-break-after: avoid; break-after: avoid; }
                         }
                     </style>
                 </head>
-                <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+                <body onload="setTimeout(() => { window.print(); window.close(); }, 200)">
                     <div id="print-content">${receiptHtml}</div>
                 </body>
             </html>
@@ -424,7 +489,7 @@ export default function InvoicesPage() {
                                                 <DropdownMenuSeparator />
                                                 {/* <DropdownMenuItem className="rounded-xl gap-2 font-bold text-destructive focus:bg-destructive/10 cursor-pointer">
                                                     Annuler
-                                                </DropdownMenuItem> */}
+                                                 </DropdownMenuItem> */}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -445,75 +510,86 @@ export default function InvoicesPage() {
             <div style={{ position: 'fixed', left: '-9999px', top: 0 }}>
                 <div ref={receiptRef}>
                     {viewingInvoice && (
-                        <div className="flex-col items-center w-full">
+                        <div className="receipt-container">
                             <div className="text-center mb-2">
-                                <h2 className="font-bold uppercase" style={{ fontSize: '15px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
-                                <p className="font-bold text-[11px] mt-1">NIF: 500253456</p>
-                                <p className="text-[9px] mt-1">Forme juridique: SURL | RC: 00734372/25</p>
-                                <p className="text-[9px]">Centre fiscal: DPMC</p>
-                            </div>
-                            <div className="w-full border-t border-dashed my-2" />
-
-                            <div className="w-full flex-col">
-                                <div className="flex justify-between">
-                                    <span>DATE:</span>
-                                    <span>{new Date(viewingInvoice.createdAt).toLocaleString('fr-FR')}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>FACT NO:</span>
-                                    <span>{viewingInvoice.invoiceNumber}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>PATIENT:</span>
-                                    <span className="uppercase text-right">{viewingInvoice.patient.firstName} {viewingInvoice.patient.lastName}</span>
-                                </div>
+                                <h2 className="font-bold uppercase" style={{ fontSize: '13px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                                <p className="font-bold">NIF: 500253456</p>
+                                <p>Forme juridique: SURL | RC: 00734372/25</p>
+                                <p>Centre fiscal: DPMC</p>
                             </div>
 
-                            <div className="w-full border-t border-dashed my-2" />
+                            <hr />
 
-                            <div className="table">
-                                <div className="table-row border-b font-bold">
-                                    <div className="table-cell">ITEM</div>
-                                    <div className="table-cell text-right">PRIX</div>
-                                </div>
-                                {viewingInvoice.items.map((item: any) => (
-                                    <div key={item.id} className="table-row">
-                                        <div className="table-cell py-1">
-                                            {item.medicalAct.name}
-                                            <br />
-                                            <span className="italic font-bold" style={{ fontSize: '14px' }}>{item.medicalAct.code}</span>
-                                        </div>
-                                        <div className="table-cell text-right">{Number(item.totalPrice).toLocaleString()}FBU</div>
-                                    </div>
-                                ))}
-                            </div>
+                            <table className="info-table">
+                                <tbody>
+                                    <tr>
+                                        <td className="lbl">DATE:</td>
+                                        <td className="val">{new Date(viewingInvoice.createdAt).toLocaleString('fr-FR')}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="lbl">FACT NO:</td>
+                                        <td className="val">{viewingInvoice.invoiceNumber}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="lbl">PATIENT:</td>
+                                        <td className="val uppercase">{viewingInvoice.patient.firstName} {viewingInvoice.patient.lastName}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
 
-                            <div className="w-full border-t border-dashed my-2" />
+                            <hr />
 
-                            <div className="w-full flex-col">
-                                <div className="flex justify-between font-bold">
-                                    <span>TOTAL BRUT:</span>
-                                    <span>{Number(viewingInvoice.totalAmount).toLocaleString()} FBU</span>
-                                </div>
-                                {Number(viewingInvoice.insuranceAmount) > 0 && (
-                                    <div className="flex justify-between">
-                                        <span>PART ASSURANCE:</span>
-                                        <span>-{Number(viewingInvoice.insuranceAmount).toLocaleString()} FBU</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between font-black" style={{ fontSize: '22px' }}>
-                                    <span>À PAYER:</span>
-                                    <span>{Number(viewingInvoice.patientAmount).toLocaleString()} FBU</span>
-                                </div>
-                                <div className="w-full border-t my-1" />
-                                <div className="flex justify-between">
-                                    <span>STATUT:</span>
-                                    <span className="uppercase font-bold">{viewingInvoice.status === 'paid' ? 'Payée' : 'En attente'}</span>
-                                </div>
-                            </div>
+                            <table className="receipt-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '75%', textAlign: 'left' }}>ITEM</th>
+                                        <th style={{ width: '25%', textAlign: 'right' }}>PRIX</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {viewingInvoice.items.map((item: any) => (
+                                        <tr key={item.id}>
+                                            <td className="act-name">
+                                                {item.medicalAct.name}
+                                                <br />
+                                                <span className="italic font-bold" style={{ fontSize: '9px' }}>{item.medicalAct.code}</span>
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>{Number(item.totalPrice).toLocaleString()}FBU</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
 
-                            <div className="w-full border-t border-dashed" />
-                            <p className="text-center italic font-black" style={{ fontSize: '16px' }}>*** Merci de votre confiance ***</p>
+                            <hr />
+
+                            <table className="total-table">
+                                <tbody>
+                                    <tr>
+                                        <td className="lbl">TOTAL BRUT:</td>
+                                        <td className="val">{Number(viewingInvoice.totalAmount).toLocaleString()} FBU</td>
+                                    </tr>
+                                    {Number(viewingInvoice.insuranceAmount) > 0 && (
+                                        <tr>
+                                            <td className="lbl">PART ASSURANCE:</td>
+                                            <td className="val">-{Number(viewingInvoice.insuranceAmount).toLocaleString()} FBU</td>
+                                        </tr>
+                                    )}
+                                    <tr className="pay-row">
+                                        <td className="lbl">À PAYER:</td>
+                                        <td className="val">{Number(viewingInvoice.patientAmount).toLocaleString()} FBU</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="lbl" style={{ paddingTop: '4px' }}>STATUT:</td>
+                                        <td className="val uppercase font-bold" style={{ paddingTop: '4px' }}>
+                                            {viewingInvoice.status === 'paid' ? 'Payée' : 'En attente'}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <hr />
+
+                            <p className="text-center italic font-black" style={{ fontSize: '11px', margin: '6px 0' }}>*** Merci de votre confiance ***</p>
                         </div>
                     )}
                 </div>

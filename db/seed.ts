@@ -2,7 +2,7 @@ import { db } from './index'
 import {
   departments,
   specialties,
-  doctors,
+  users,
   insurances,
   patients,
   services,
@@ -206,65 +206,27 @@ async function seed() {
       {} as Record<string, string>
     )
 
-    console.log('👨‍⚕️  Seeding doctors...')
-    await db.insert(doctors).values([
-      {
-        firstName: 'Sarah',
-        lastName: 'Chen',
-        specialtyId: specMap['Interventional Cardiology'],
-        phone: '+1-555-0101',
+    console.log('👨‍⚕️  Création des médecins...')
+    const doctorUsers = [
+      { username: 'sarah.chen', fullName: 'Sarah Chen', role: 'doctor', specialtyId: specMap['Interventional Cardiology'], phone: '+1-555-0101' },
+      { username: 'james.wilson', fullName: 'James Wilson', role: 'doctor', specialtyId: specMap['Electrophysiology'], phone: '+1-555-0102' },
+      { username: 'maria.garcia', fullName: 'Maria Garcia', role: 'doctor', specialtyId: specMap['Neurophysiology'], phone: '+1-555-0103' },
+      { username: 'robert.kim', fullName: 'Robert Kim', role: 'doctor', specialtyId: specMap['Sports Medicine'], phone: '+1-555-0104' },
+      { username: 'emily.johnson', fullName: 'Emily Johnson', role: 'doctor', specialtyId: specMap['Neonatology'], phone: '+1-555-0105' },
+      { username: 'david.brown', fullName: 'David Brown', role: 'doctor', specialtyId: specMap['Trauma Surgery'], phone: '+1-555-0106' },
+      { username: 'lisa.patel', fullName: 'Lisa Patel', role: 'doctor', specialtyId: specMap['Interventional Cardiology'], phone: '+1-555-0107' },
+      { username: 'michael.lee', fullName: 'Michael Lee', role: 'doctor', specialtyId: specMap['Neurophysiology'], phone: '+1-555-0108' },
+    ]
+
+    await db.insert(users).values(
+      doctorUsers.map((du) => ({
+        ...du,
+        passwordHash: '$2b$10$placeholder',
+        email: `${du.username}@clinic.com`,
+        licenseNumber: `LIC-${du.username.split('.')[0].toUpperCase()}`,
         isActive: true,
-      },
-      {
-        firstName: 'James',
-        lastName: 'Wilson',
-        specialtyId: specMap['Electrophysiology'],
-        phone: '+1-555-0102',
-        isActive: true,
-      },
-      {
-        firstName: 'Maria',
-        lastName: 'Garcia',
-        specialtyId: specMap['Neurophysiology'],
-        phone: '+1-555-0103',
-        isActive: true,
-      },
-      {
-        firstName: 'Robert',
-        lastName: 'Kim',
-        specialtyId: specMap['Sports Medicine'],
-        phone: '+1-555-0104',
-        isActive: true,
-      },
-      {
-        firstName: 'Emily',
-        lastName: 'Johnson',
-        specialtyId: specMap['Neonatology'],
-        phone: '+1-555-0105',
-        isActive: true,
-      },
-      {
-        firstName: 'David',
-        lastName: 'Brown',
-        specialtyId: specMap['Trauma Surgery'],
-        phone: '+1-555-0106',
-        isActive: false,
-      },
-      {
-        firstName: 'Lisa',
-        lastName: 'Patel',
-        specialtyId: specMap['Interventional Cardiology'],
-        phone: '+1-555-0107',
-        isActive: true,
-      },
-      {
-        firstName: 'Michael',
-        lastName: 'Lee',
-        specialtyId: specMap['Neurophysiology'],
-        phone: '+1-555-0108',
-        isActive: true,
-      },
-    ])
+      }))
+    )
 
     console.log('🏥 Seeding insurances...')
     const insResults = await db

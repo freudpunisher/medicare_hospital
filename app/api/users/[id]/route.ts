@@ -10,12 +10,16 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await req.json()
-    const { fullName, role, isActive } = body
+    const { fullName, role, isActive, specialtyId, phone, email, licenseNumber } = body
 
     const updateData: any = {}
     if (fullName !== undefined) updateData.fullName = fullName
     if (role !== undefined) updateData.role = role
     if (isActive !== undefined) updateData.isActive = isActive
+    if (specialtyId !== undefined) updateData.specialtyId = specialtyId
+    if (phone !== undefined) updateData.phone = phone
+    if (email !== undefined) updateData.email = email
+    if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }

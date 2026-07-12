@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag, CreditCard, History as HistoryIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -165,6 +166,24 @@ export default function BillingPage() {
   const [partnershipData, setPartnershipData] = useState<PartnershipData | null>(null)
   const [loadingPartnership, setLoadingPartnership] = useState(false)
   const receiptRef = useRef<HTMLDivElement>(null)
+  const searchParams = useSearchParams()
+
+  // Auto-select patient from URL param
+  useEffect(() => {
+    const patientId = searchParams.get("patientId")
+    if (!patientId) return
+
+    fetch(`/api/patients/${patientId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data || !data.id) return
+        setSelectedPatient(data)
+        setItems([])
+        const IDs = data.insurances?.map((i: any) => i.insuranceId) || []
+        setSelectedInsuranceIds(IDs)
+      })
+      .catch((err) => console.error("Failed to load patient from URL", err))
+  }, [])
 
   // Fetch acts and services on mount
   useEffect(() => {
@@ -465,25 +484,21 @@ export default function BillingPage() {
             html { height: auto; }
             body {
               font-family: 'Courier New', Courier, monospace;
-              font-size: 12px;
+              font-size: 11px;
               font-weight: 400;
               background: #fff;
-              width: 76mm;
-              max-width: 76mm;
+              width: 72mm;
+              max-width: 72mm;
+              padding: 0;
+              margin: 0;
+              line-height: 1.25;
+            }
+            .receipt-container {
+              width: 72mm;
               padding: 2mm;
               margin: 0;
-              line-height: 1.3;
-              overflow: hidden;
-              word-break: break-word;
-              overflow-wrap: break-word;
+              background: #fff;
             }
-            .flex { display: flex; gap: 2px; width: 100%; overflow: hidden; }
-            .flex-col { flex-direction: column; }
-            .items-center { align-items: center; }
-            .justify-between { justify-content: space-between; }
-            .flex span { overflow-wrap: break-word; word-break: break-word; min-width: 0; }
-            .flex .text-right { flex-shrink: 0; max-width: 55%; text-align: right; }
-            .w-full { width: 100%; }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .font-bold { font-weight: 700; }
@@ -491,20 +506,77 @@ export default function BillingPage() {
             .uppercase { text-transform: uppercase; }
             .italic { font-style: italic; }
             .mt-1 { margin-top: 2px; }
-            .mb-2 { margin-bottom: 2px; }
-            .my-1 { margin-top: 3px; margin-bottom: 3px; }
-            .my-2 { margin-top: 3px; margin-bottom: 3px; }
-            .pl-2 { padding-left: 4px; }
-            .border-t { border-top: 1px solid #000; }
-            .border-b { border-bottom: 1px solid #000; }
-            .border-dashed { border-style: dashed; }
-            .table { display: table; width: 100%; table-layout: fixed; }
-            .table-row { display: table-row; }
-            .table-cell { display: table-cell; padding: 0; word-break: break-word; overflow-wrap: break-word; }
+            .mb-2 { margin-bottom: 4px; }
+            
+            hr {
+              border: 0;
+              border-top: 1px dashed #000;
+              margin: 4px 0;
+              height: 0;
+            }
+            
+            .info-table, .receipt-table, .total-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 3px 0;
+              table-layout: fixed;
+            }
+            .info-table td, .receipt-table td, .receipt-table th, .total-table td {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 11px;
+              line-height: 1.25;
+              padding: 1px 0;
+              vertical-align: top;
+            }
+            
+            .info-table td.lbl {
+              text-align: left;
+              width: 32%;
+            }
+            .info-table td.val {
+              text-align: right;
+              width: 68%;
+              font-weight: bold;
+              word-break: break-word;
+              overflow-wrap: break-word;
+            }
+            
+            .receipt-table th {
+              border-bottom: 1px solid #000;
+              font-weight: 700;
+            }
+            .receipt-table td.act-name {
+              word-break: break-word;
+              overflow-wrap: break-word;
+            }
+            
+            .total-table td.lbl {
+              text-align: left;
+              width: 50%;
+            }
+            .total-table td.val {
+              text-align: right;
+              width: 50%;
+              font-weight: bold;
+            }
+            .total-table tr.pay-row td {
+              font-size: 15px;
+              font-weight: 900;
+              border-top: 1px solid #000;
+              border-bottom: 1px solid #000;
+              padding: 3px 0;
+            }
             #print-content { display: block; width: 100%; }
             @media print {
-              @page { size: 80mm auto; margin: 0; }
-              html, body { height: auto; margin: 0; padding: 2mm; width: 76mm; }
+              @page { size: auto; margin: 0mm; }
+              html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 72mm !important;
+                overflow: visible !important;
+              }
               #print-content { page-break-after: avoid; break-after: avoid; }
             }
           </style>
@@ -613,109 +685,123 @@ export default function BillingPage() {
       <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
         <div ref={receiptRef}>
           {lastInvoice && (
-            <div className="flex-col items-center w-full">
+            <div className="receipt-container">
               <div className="text-center mb-2">
-                <h2 className="font-bold uppercase" style={{ fontSize: '14px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                <h2 className="font-bold uppercase" style={{ fontSize: '13px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
                 <p className="font-bold">NIF: 500253456</p>
                 <p>Forme juridique: SURL | RC: 00734372/25</p>
                 <p>Centre fiscal: DPMC</p>
               </div>
-              <div className="w-full border-t border-dashed my-2" />
 
-              <div className="w-full flex-col">
-                <div className="flex justify-between">
-                  <span>DATE:</span>
-                  <span>{new Date(lastInvoice.createdAt).toLocaleString('fr-FR')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>FACT NO:</span>
-                  <span>{lastInvoice.invoiceNumber}</span>
-                </div>
-                <div className="flex justify-between italic">
-                  <span>CAISSIER:</span>
-                  <span className="uppercase">{user?.fullName || user?.username || 'Système'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>PATIENT:</span>
-                  <span className="uppercase text-right">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ID:</span>
-                  <span className="uppercase text-right">#{lastInvoice.patient.patientNumber}</span>
-                </div>
-                {lastInvoice.selectedInsurances && lastInvoice.selectedInsurances.length > 0 && (
-                  <div className="flex-col mt-1">
-                    <span className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</span>
-                    {lastInvoice.selectedInsurances.map((si: any) => (
-                      <div key={si.id} className="flex justify-between pl-2 italic font-bold" style={{ fontSize: '14px' }}>
-                        <span>- {si.insurance.name}:</span>
-                        <span>{si.insuranceNumber}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <hr />
 
-              <div className="w-full border-t border-dashed my-2" />
+              <table className="info-table">
+                <tbody>
+                  <tr>
+                    <td className="lbl">DATE:</td>
+                    <td className="val">{new Date(lastInvoice.createdAt).toLocaleString('fr-FR')}</td>
+                  </tr>
+                  <tr>
+                    <td className="lbl">FACT NO:</td>
+                    <td className="val">{lastInvoice.invoiceNumber}</td>
+                  </tr>
+                  <tr className="italic">
+                    <td className="lbl">CAISSIER:</td>
+                    <td className="val uppercase">{user?.fullName || user?.username || 'Système'}</td>
+                  </tr>
+                  <tr>
+                    <td className="lbl">PATIENT:</td>
+                    <td className="val uppercase">{lastInvoice.patient.firstName} {lastInvoice.patient.lastName}</td>
+                  </tr>
+                  <tr>
+                    <td className="lbl">ID:</td>
+                    <td className="val uppercase">#{lastInvoice.patient.patientNumber}</td>
+                  </tr>
+                </tbody>
+              </table>
 
-              <div className="table">
-                <div className="table-row border-b font-bold">
-                  <div className="table-cell">ITEM</div>
-                  <div className="table-cell text-right">PRIX</div>
+              {lastInvoice.selectedInsurances && lastInvoice.selectedInsurances.length > 0 && (
+                <div style={{ marginTop: '4px' }}>
+                  <p className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</p>
+                  <table className="info-table" style={{ margin: 0 }}>
+                    <tbody>
+                      {lastInvoice.selectedInsurances.map((si: any) => (
+                        <tr key={si.id} className="italic" style={{ fontSize: '10px' }}>
+                          <td className="lbl" style={{ paddingLeft: '4px' }}>- {si.insurance.name}:</td>
+                          <td className="val">{si.insuranceNumber}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                {lastInvoice.items.map((item: any) => (
-                  <div key={item.id} className="table-row">
-                    <div className="table-cell">
-                      {item.actName}
-                      <br />
-                      <span className="italic font-bold" style={{ fontSize: '12px' }}>{item.actCode}</span>
-                    </div>
-                    <div className="table-cell text-right">{item.patientPart.toLocaleString()}FBU</div>
-                  </div>
-                ))}
-              </div>
+              )}
 
-              <div className="w-full border-t border-dashed my-2" />
+              <hr />
 
-              <div className="w-full flex-col">
-                <div className="flex justify-between font-bold">
-                  <span>TOTAL BRUT:</span>
-                  <span>{lastInvoice.totals.total.toLocaleString()} FBU</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>PART ASSUREANCE:</span>
-                  <span>-{lastInvoice.totals.insTotal.toLocaleString()} FBU</span>
-                </div>
-                {lastInvoice.totals.partnershipTotal > 0 && (
-                  <div className="flex justify-between" style={{ color: '#2563eb' }}>
-                    <span>Remise Corporate:</span>
-                    <span>-{lastInvoice.totals.partnershipTotal.toLocaleString()} FBU</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-black" style={{ fontSize: '18px' }}>
-                  <span>À PAYER:</span>
-                  <span>{lastInvoice.totals.patTotal.toLocaleString()} FBU</span>
-                </div>
-                <div className="w-full border-t my-1" />
-                <div className="flex justify-between">
-                  <span>MODE:</span>
-                  <span className="uppercase">
-                    {lastInvoice.paymentMethod === 'cash' ? 'CASH' :
-                      lastInvoice.paymentMethod === 'mobile_money' ? 'MOB MONEY' :
-                        lastInvoice.paymentMethod === 'card' ? 'CARTE' : 'DETTE'}
-                  </span>
-                </div>
-                {lastInvoice.paymentReference && (
-                  <div className="flex justify-between">
-                    <span>REF:</span>
-                    <span>{lastInvoice.paymentReference}</span>
-                  </div>
-                )}
-              </div>
+              <table className="receipt-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '75%', textAlign: 'left' }}>ITEM</th>
+                    <th style={{ width: '25%', textAlign: 'right' }}>PRIX</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastInvoice.items.map((item: any) => (
+                    <tr key={item.id}>
+                      <td className="act-name">
+                        {item.actName}
+                        <br />
+                        <span className="italic font-bold" style={{ fontSize: '9px' }}>{item.actCode}</span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>{item.patientPart.toLocaleString()}FBU</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-              <div className="w-full border-t border-dashed" />
-              <p className="text-center italic font-black" style={{ fontSize: '14px' }}>*** Merci de votre confiance ***</p>
-              <p className="text-center mt-1 font-bold" style={{ fontSize: '10px' }}>{lastInvoice.id}</p>
+              <hr />
+
+              <table className="total-table">
+                <tbody>
+                  <tr>
+                    <td className="lbl">TOTAL BRUT:</td>
+                    <td className="val">{lastInvoice.totals.total.toLocaleString()} FBU</td>
+                  </tr>
+                  <tr>
+                    <td className="lbl">PART ASSURANCE:</td>
+                    <td className="val">-{lastInvoice.totals.insTotal.toLocaleString()} FBU</td>
+                  </tr>
+                  {lastInvoice.totals.partnershipTotal > 0 && (
+                    <tr style={{ color: '#000' }}>
+                      <td className="lbl">Remise Corporate:</td>
+                      <td className="val">-{lastInvoice.totals.partnershipTotal.toLocaleString()} FBU</td>
+                    </tr>
+                  )}
+                  <tr className="pay-row">
+                    <td className="lbl">À PAYER:</td>
+                    <td className="val">{lastInvoice.totals.patTotal.toLocaleString()} FBU</td>
+                  </tr>
+                  <tr>
+                    <td className="lbl" style={{ paddingTop: '4px' }}>MODE:</td>
+                    <td className="val uppercase" style={{ paddingTop: '4px' }}>
+                      {lastInvoice.paymentMethod === 'cash' ? 'CASH' :
+                        lastInvoice.paymentMethod === 'mobile_money' ? 'MOB MONEY' :
+                          lastInvoice.paymentMethod === 'card' ? 'CARTE' : 'DETTE'}
+                    </td>
+                  </tr>
+                  {lastInvoice.paymentReference && (
+                    <tr>
+                      <td className="lbl">REF:</td>
+                      <td className="val">{lastInvoice.paymentReference}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <hr />
+
+              <p className="text-center italic font-black" style={{ fontSize: '11px', margin: '6px 0' }}>*** Merci de votre confiance ***</p>
+              <p className="text-center font-bold" style={{ fontSize: '9px', opacity: 0.8 }}>{lastInvoice.id}</p>
             </div>
           )}
         </div>

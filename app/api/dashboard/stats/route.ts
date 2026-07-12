@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import {
     patients,
-    doctors,
+    users,
     medicalActs,
     services,
     invoices,
@@ -18,7 +18,7 @@ export async function GET() {
     try {
         // 1. Basic Counts
         const [patientCount] = await db.select({ count: sql<number>`count(*)` }).from(patients)
-        const [doctorCount] = await db.select({ count: sql<number>`count(*)` }).from(doctors).where(eq(doctors.isActive, true))
+        const [doctorCount] = await db.select({ count: sql<number>`count(*)` }).from(users).where(and(eq(users.role, 'doctor'), eq(users.isActive, true)))
         const [actCount] = await db.select({ count: sql<number>`count(*)` }).from(medicalActs).where(eq(medicalActs.isActive, true))
         const [serviceCount] = await db.select({ count: sql<number>`count(*)` }).from(services).where(eq(services.isActive, true))
         const [invoiceCount] = await db.select({ count: sql<number>`count(*)` }).from(invoices)
