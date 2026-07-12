@@ -48,6 +48,50 @@ export async function GET(
     }
 }
 
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: invoiceId } = await params
+    const body = await req.json()
+    const { status, cancellationReason } = body
+
+    if (!status) {
+      return NextResponse.json({ success: false, error: 'Status is required' }, { status: 400 })
+    }
+
+    const invoice = await db.query.invoices.findFirst({ where: eq(invoices.id, invoiceId) })
+    if (!invoice) {
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 })
+    }
+
+    const [updated] = await db.transaction(async (tx) => {
+      if (status === 'cancelled') {
+        await tx.delete(payments).where(eq(payments.invoiceId, invoiceId))
+      }
+
+      const notes = cancellationReason
+        ? `Annulation: ${cancellationReason}`
+        : (invoice.status === 'paid' ? 'Annulation avec remboursement' : undefined)
+
+      const updateData: any = { status, updatedAt: new Date() }
+      if (notes) updateData.notes = notes
+
+      return await tx
+        .update(invoices)
+        .set(updateData)
+        .where(eq(invoices.id, invoiceId))
+        .returning()
+    })
+
+    return NextResponse.json({ success: true, data: updated[0] })
+  } catch (error) {
+    console.error('Failed to update invoice:', error)
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function PUT(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -55,7 +99,7 @@ export async function PUT(
     try {
         const { id: invoiceId } = await params
         const body = await req.json()
-        const { paymentMethod, paymentReference, amount } = body
+        const { paymentMethod, paymentReference, amount, cashSessionId } = body
 
         if (!paymentMethod) {
             return NextResponse.json({ success: false, error: 'Payment method is required' }, { status: 400 })
@@ -80,6 +124,7 @@ export async function PUT(
                 amount: (amount ?? invoice.patientAmount).toString(),
                 paymentMethod,
                 referenceNumber: paymentReference || null,
+                cashSessionId: cashSessionId || null,
                 notes: 'Payment recorded from invoice details',
             })
 

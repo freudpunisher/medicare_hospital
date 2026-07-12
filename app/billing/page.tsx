@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag, CreditCard, History as HistoryIcon } from "lucide-react"
+import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag, CreditCard, History as HistoryIcon, Landmark } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -163,6 +163,8 @@ export default function BillingPage() {
   const [paymentReference, setPaymentReference] = useState("")
   const [discountAmount, setDiscountAmount] = useState(0)
   const [lastInvoice, setLastInvoice] = useState<any>(null)
+  const [openSessions, setOpenSessions] = useState<any[]>([])
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("")
   const [partnershipData, setPartnershipData] = useState<PartnershipData | null>(null)
   const [loadingPartnership, setLoadingPartnership] = useState(false)
   const receiptRef = useRef<HTMLDivElement>(null)
@@ -185,21 +187,28 @@ export default function BillingPage() {
       .catch((err) => console.error("Failed to load patient from URL", err))
   }, [])
 
-  // Fetch acts and services on mount
+  // Fetch acts, services, and open cash sessions on mount
   useEffect(() => {
     async function fetchInitialData() {
       setLoadingActs(true)
       setLoadingServices(true)
       try {
-        const [actsRes, servicesRes] = await Promise.all([
+        const [actsRes, servicesRes, sessionsRes] = await Promise.all([
           fetch("/api/acts/list"),
-          fetch("/api/services/list?active=true")
+          fetch("/api/services/list?active=true"),
+          fetch("/api/finance/cash-sessions?status=open")
         ])
         const actsData = await actsRes.json()
         const servicesData = await servicesRes.json()
+        const sessionsData = await sessionsRes.json()
 
         if (actsRes.ok) setActs(actsData.data || [])
         if (servicesRes.ok) setServices(servicesData.data || [])
+        if (sessionsRes.ok) {
+          const sessions = sessionsData.data || []
+          setOpenSessions(sessions)
+          if (sessions.length > 0) setSelectedSessionId(sessions[0].id)
+        }
       } catch (err) {
         console.error("Failed to fetch initial data")
       } finally {
@@ -604,6 +613,7 @@ export default function BillingPage() {
         partnershipDiscountAmount: partnershipTotalDiscount,
         paymentMethod,
         paymentReference: paymentMethod === 'mobile_money' ? paymentReference : null,
+        cashSessionId: selectedSessionId || null,
         items: items.map(i => ({
           actId: i.actId,
           quantity: i.quantity,
@@ -1218,6 +1228,26 @@ export default function BillingPage() {
                         value={paymentReference}
                         onChange={(e) => setPaymentReference(e.target.value)}
                       />
+                    </div>
+                  )}
+
+                  {openSessions.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase ml-1 flex items-center gap-1">
+                        <Landmark className="size-3" /> Caisse / Session
+                      </label>
+                      <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue placeholder="Sélectionner une caisse" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {openSessions.map((s: any) => (
+                            <SelectItem key={s.id} value={s.id} className="text-xs">
+                              {s.cashRegister?.name || 'Caisse'} — {new Date(s.openedAt).toLocaleString()}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 

@@ -18,6 +18,7 @@ export async function POST(req: Request) {
             items,
             paymentMethod,
             paymentReference,
+            cashSessionId,
         } = body
 
         if (!patientId || !items || items.length === 0) {
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
                     amount: patientAmount.toString(),
                     paymentMethod,
                     referenceNumber: paymentReference || null,
+                    cashSessionId: cashSessionId || null,
                     notes: `Automatic payment on invoice creation${discountAmount > 0 ? ` (Reduction: ${discountAmount} FBU)` : ''}${partnershipDiscountAmount > 0 ? ` (Corporate: ${partnershipDiscountAmount} FBU)` : ''}`,
                 })
             }

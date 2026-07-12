@@ -256,7 +256,11 @@ function NewPatientContent() {
         return
       }
       toast.success("Patient créé avec succès")
-      router.push(redirect || "/patients")
+      const patientId = data?.data?.id || data?.id
+      const redirectUrl = redirect
+        ? `${redirect}${redirect.includes("?") ? "&" : "?"}patientId=${patientId}`
+        : "/patients"
+      router.push(redirectUrl)
     } catch (err) {
       toast.error("Échec de création du patient")
     } finally {

@@ -18,9 +18,11 @@ import {
     CheckCircle2,
     Clock,
     AlertCircle,
+    Ban,
     Eye,
     ListFilter,
-    Loader2
+    Loader2,
+    Landmark
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,12 +52,21 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogFooter,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { InvoiceA4 } from "@/components/billing/invoice-a4"
 import { toast } from "sonner"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 interface Invoice {
     id: string
@@ -85,19 +96,34 @@ export default function InvoicesPage() {
     const [paymentMethod, setPaymentMethod] = useState<string>("cash")
     const [paymentReference, setPaymentReference] = useState("")
     const [isPaying, setIsPaying] = useState(false)
+    const [openSessions, setOpenSessions] = useState<any[]>([])
+    const [selectedSessionId, setSelectedSessionId] = useState<string>("")
+    const [cancelOpen, setCancelOpen] = useState(false)
+    const [cancelReason, setCancelReason] = useState("")
+    const [isCancelling, setIsCancelling] = useState(false)
+    const [cancellingInvoice, setCancellingInvoice] = useState<any | null>(null)
     const printRef = useRef<HTMLDivElement>(null)
     const receiptRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         async function fetchInvoices() {
             try {
-                const res = await fetch('/api/billing/invoices/list')
-                const data = await res.json()
-                if (data.success) {
-                    setInvoices(data.data)
+                const [invRes, sessRes] = await Promise.all([
+                    fetch('/api/billing/invoices/list'),
+                    fetch('/api/finance/cash-sessions?status=open')
+                ])
+                const invData = await invRes.json()
+                if (invData.success) {
+                    setInvoices(invData.data)
+                }
+                const sessData = await sessRes.json()
+                if (sessRes.ok) {
+                    const sessions = sessData.data || []
+                    setOpenSessions(sessions)
+                    if (sessions.length > 0) setSelectedSessionId(sessions[0].id)
                 }
             } catch (error) {
-                console.error('Failed to fetch invoices:', error)
+                console.error('Failed to fetch initial data:', error)
             } finally {
                 setLoading(false)
             }
@@ -118,6 +144,7 @@ export default function InvoicesPage() {
         setShowDetails(true)
         setPaymentMethod('cash')
         setPaymentReference('')
+        if (openSessions.length > 0) setSelectedSessionId(openSessions[0].id)
         try {
             const res = await fetch(`/api/billing/invoices/${id}`)
             const data = await res.json()
@@ -135,6 +162,35 @@ export default function InvoicesPage() {
         }
     }
 
+    const handleCancel = async () => {
+        if (!cancellingInvoice || !cancelReason.trim()) return
+        setIsCancelling(true)
+        try {
+            const res = await fetch(`/api/billing/invoices/${cancellingInvoice.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'cancelled', cancellationReason: cancelReason.trim() }),
+            })
+            const data = await res.json()
+            if (!data.success) {
+                toast.error(data.error || "Échec de l'annulation")
+                return
+            }
+            toast.success('Facture annulée')
+            setCancelOpen(false)
+            setCancelReason('')
+            setCancellingInvoice(null)
+            setShowDetails(false)
+            const listRes = await fetch('/api/billing/invoices/list')
+            const listData = await listRes.json()
+            if (listData.success) setInvoices(listData.data)
+        } catch (err) {
+            toast.error("Erreur lors de l'annulation")
+        } finally {
+            setIsCancelling(false)
+        }
+    }
+
     const handlePayment = async () => {
         if (!viewingInvoice) return
         setIsPaying(true)
@@ -146,6 +202,7 @@ export default function InvoicesPage() {
                     paymentMethod,
                     paymentReference: paymentMethod === 'mobile_money' ? paymentReference : null,
                     amount: viewingInvoice.patientAmount,
+                    cashSessionId: selectedSessionId || null,
                 })
             })
             const data = await res.json()
@@ -486,10 +543,22 @@ export default function InvoicesPage() {
                                                 >
                                                     <Eye className="size-4" /> Voir Détails
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                {/* <DropdownMenuItem className="rounded-xl gap-2 font-bold text-destructive focus:bg-destructive/10 cursor-pointer">
-                                                    Annuler
-                                                 </DropdownMenuItem> */}
+                                                {inv.status !== 'cancelled' && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="rounded-xl gap-2 font-bold text-destructive focus:bg-destructive/10 cursor-pointer"
+                                                            onClick={async () => {
+                                                                const res = await fetch(`/api/billing/invoices/${inv.id}`)
+                                                                const json = await res.json()
+                                                                if (json.success) setCancellingInvoice(json.data)
+                                                                setCancelOpen(true)
+                                                            }}
+                                                        >
+                                                            <Ban className="size-4" /> Annuler
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -633,7 +702,7 @@ export default function InvoicesPage() {
                                     </div>
                                     <div className="flex justify-between text-xs mt-1">
                                         <span className="text-muted-foreground">Statut:</span>
-                                        <span className="font-bold uppercase text-primary">{viewingInvoice.status === 'paid' ? 'Payée' : viewingInvoice.status === 'pending' ? 'En attente' : viewingInvoice.status}</span>
+                                        <span className="font-bold uppercase text-primary">{viewingInvoice.status === 'paid' ? 'Payée' : viewingInvoice.status === 'pending' ? 'En attente' : viewingInvoice.status === 'cancelled' ? 'Annulée' : viewingInvoice.status}</span>
                                     </div>
                                 </div>
                             </div>
@@ -746,6 +815,26 @@ export default function InvoicesPage() {
                                         </div>
                                     )}
 
+                                    {openSessions.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase ml-1 flex items-center gap-1">
+                                                <Landmark className="size-3" /> Caisse / Session
+                                            </label>
+                                            <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+                                                <SelectTrigger className="h-9 text-xs">
+                                                    <SelectValue placeholder="Sélectionner une caisse" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {openSessions.map((s: any) => (
+                                                        <SelectItem key={s.id} value={s.id} className="text-xs">
+                                                            {s.cashRegister?.name || 'Caisse'} — {new Date(s.openedAt).toLocaleString()}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+
                                     <Button
                                         className="w-full h-12 font-black bg-orange-600 hover:bg-orange-700 text-white"
                                         disabled={isPaying || (paymentMethod === 'mobile_money' && !paymentReference)}
@@ -759,8 +848,89 @@ export default function InvoicesPage() {
                                     </Button>
                                 </div>
                             )}
+
+                            {/* Cancel section for non-cancelled invoices */}
+                            {viewingInvoice.status !== 'cancelled' && (
+                                <div className="pt-2">
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                        onClick={() => { setCancellingInvoice(viewingInvoice); setCancelOpen(true) }}
+                                    >
+                                        <Ban className="size-4" /> Annuler la Facture
+                                    </Button>
+                                </div>
+                            )}
+
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Cancellation reason dialog (top-level, outside detail dialog) */}
+            <Dialog open={cancelOpen} onOpenChange={(open) => { setCancelOpen(open); if (!open) { setCancelReason(''); setCancellingInvoice(null) } }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-lg font-black text-red-600">
+                            <AlertCircle className="size-5" /> Annuler la Facture
+                        </DialogTitle>
+                        <DialogDescription>
+                            Le paiement sera annulé (remboursement). Cette action est irréversible.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {cancellingInvoice && (
+                        <div className="rounded-2xl bg-muted/50 p-4 space-y-2 border">
+                            <div className="flex justify-between text-xs">
+                                <span className="font-bold text-muted-foreground uppercase">Facture</span>
+                                <span className="font-black">{cancellingInvoice.invoiceNumber}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className="font-bold text-muted-foreground uppercase">Patient</span>
+                                <span className="font-semibold">{cancellingInvoice.patient?.firstName} {cancellingInvoice.patient?.lastName}</span>
+                            </div>
+
+                            {cancellingInvoice.items && cancellingInvoice.items.length > 0 && (
+                                <div className="pt-1">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Prestations</p>
+                                    {cancellingInvoice.items.map((item: any, i: number) => (
+                                        <div key={item.id || i} className="flex justify-between text-[11px] py-0.5">
+                                            <span className="text-muted-foreground">{item.medicalAct?.name || item.medicalAct?.code || "—"}</span>
+                                            <span className="font-semibold">{Number(item.totalPrice).toLocaleString()} FBU</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <hr className="border-muted-foreground/20" />
+                            <div className="flex justify-between text-xs">
+                                <span className="font-bold text-muted-foreground uppercase">Montant</span>
+                                <span className="font-black">{Number(cancellingInvoice.patientAmount).toLocaleString()} FBU</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className="font-bold text-muted-foreground uppercase">Statut</span>
+                                <span className="font-semibold capitalize">{cancellingInvoice.status === 'paid' ? 'Payée' : cancellingInvoice.status === 'pending' ? 'En attente' : cancellingInvoice.status}</span>
+                            </div>
+                        </div>
+                    )}
+                    <div className="space-y-2">
+                        <Label>Motif d'annulation</Label>
+                        <textarea
+                            className="w-full min-h-[100px] p-3 rounded-xl border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                            placeholder="Expliquez la raison de l'annulation..."
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => { setCancelOpen(false); setCancelReason(''); setCancellingInvoice(null) }}>Retour</Button>
+                        <Button
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            disabled={isCancelling || !cancelReason.trim()}
+                            onClick={handleCancel}
+                        >
+                            {isCancelling ? <><Loader2 className="size-4 mr-2 animate-spin" /> Annulation...</> : 'Confirmer l\'annulation'}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
