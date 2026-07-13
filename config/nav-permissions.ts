@@ -25,6 +25,7 @@ export interface NavPermission {
 export const NAV_PERMISSIONS: NavPermission[] = [
     { group: "Overview", roles: "*" },
     { group: "Clinical", roles: ["admin", "doctor", "user"] },
+    { group: "Laboratory", roles: ["admin", "doctor", "user"] },
     { group: "Insurance", roles: ["admin", "cashier", "user"] },
     { group: "Billing", roles: ["admin", "cashier", "user"] },
     { group: "Pharmacy", roles: ["admin", "pharmacist", "cashier", "user"] },
@@ -61,6 +62,14 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
             { title: "Services", href: "/services", iconName: "Layers" },
             { title: "Medical Acts", href: "/acts", iconName: "Activity" },
             { title: "Doctors", href: "/doctors", iconName: "User" }
+        ]
+    },
+    {
+        label: "Laboratory",
+        items: [
+            { title: "Dashboard", href: "/lab", iconName: "FlaskConical" },
+            { title: "Demandes", href: "/lab/orders", iconName: "ClipboardList" },
+            { title: "Catalogue Tests", href: "/lab/tests", iconName: "Microscope" },
         ]
     },
     {

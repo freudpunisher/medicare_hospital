@@ -104,6 +104,10 @@ export const resultInterpretationEnum = pgEnum("result_interpretation", [
   "critical_high",
 ])
 
+// ============================================================
+// HOSPITALIZATION STATUS ENUM
+// ============================================================
+export const bedStatusEnum = pgEnum("bed_status", ["available", "occupied", "maintenance", "reserved"])
 
 export const departments = pgTable(
   'departments',
@@ -121,6 +125,7 @@ export const departments = pgTable(
   })
 )
 
+export const bedAssignmentTypeEnum = pgEnum("bed_assignment_type", ["admission", "transfer", "discharge"])
 // ============================================================
 // SPECIALTIES TABLE
 // ============================================================
@@ -1323,6 +1328,37 @@ export const examResults = pgTable(
 // ============================================================
 // HOSPITALIZATIONS TABLE
 // ============================================================
+
+
+export const wards = pgTable(
+  'wards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 150 }).notNull(), // "Maternité", "Pédiatrie", "Chirurgie"
+    departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
+    floor: varchar('floor', { length: 50 }),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  }
+)
+
+export const beds = pgTable(
+  'beds',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    wardId: uuid('ward_id').notNull().references(() => wards.id, { onDelete: 'cascade' }),
+    bedNumber: varchar('bed_number', { length: 20 }).notNull(),
+    bedType: varchar('bed_type', { length: 50 }), // standard, icu, private
+    status: bedStatusEnum('status').notNull().default('available'),
+    dailyRateActId: uuid('daily_rate_act_id').references(() => medicalActs.id, { onDelete: 'set null' }),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    wardIdx: index('beds_ward_idx').on(table.wardId),
+    statusIdx: index('beds_status_idx').on(table.status),
+  })
+)
 export const hospitalizations = pgTable(
   'hospitalizations',
   {
@@ -1345,8 +1381,9 @@ export const hospitalizations = pgTable(
     admissionDate: timestamp('admission_date').notNull().defaultNow(),
     dischargeDate: timestamp('discharge_date'),
 
-    roomNumber: varchar('room_number', { length: 50 }),
-    bedNumber: varchar('bed_number', { length: 50 }),
+    serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+    expectedDischargeDate: timestamp('expected_discharge_date'),
+    dischargeSummary: text('discharge_summary'),
 
     status: varchar('status', { length: 30 }).notNull().default('admitted'),
     // admitted, discharged, transferred
@@ -1361,6 +1398,26 @@ export const hospitalizations = pgTable(
     visitIdx: index('hospitalizations_visit_idx').on(table.visitId),
     patientIdx: index('hospitalizations_patient_idx').on(table.patientId),
     statusIdx: index('hospitalizations_status_idx').on(table.status),
+  })
+)
+
+export const bedAssignments = pgTable(
+  'bed_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    hospitalizationId: uuid('hospitalization_id')
+      .notNull()
+      .references(() => hospitalizations.id, { onDelete: 'cascade' }),
+    bedId: uuid('bed_id').notNull().references(() => beds.id, { onDelete: 'restrict' }),
+    assignmentType: bedAssignmentTypeEnum('assignment_type').notNull().default('admission'),
+    assignedAt: timestamp('assigned_at').notNull().defaultNow(),
+    releasedAt: timestamp('released_at'), // null while still occupying this bed
+    assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+    reason: text('reason'), // why the transfer happened
+  },
+  (table) => ({
+    hospitalizationIdx: index('bed_assignments_hospitalization_idx').on(table.hospitalizationId),
+    bedIdx: index('bed_assignments_bed_idx').on(table.bedId),
   })
 )
 
@@ -2158,22 +2215,67 @@ export const labResultValuesRelations = relations(labResultValues, ({ one }) => 
   }),
 }))
 
-
-export const hospitalizationsRelations = relations(hospitalizations, ({ one }) => ({
-  visit: one(visits, {
-    fields: [hospitalizations.visitId],
-    references: [visits.id],
-  }),
-  patient: one(patients, {
-    fields: [hospitalizations.patientId],
-    references: [patients.id],
-  }),
+export const wardsRelations = relations(wards, ({ one, many }) => ({
   department: one(departments, {
-    fields: [hospitalizations.departmentId],
+    fields: [wards.departmentId],
     references: [departments.id],
   }),
-  doctor: one(users, {
-    fields: [hospitalizations.doctorId],
+  beds: many(beds),
+}))
+
+export const bedsRelations = relations(beds, ({ one, many }) => ({
+  ward: one(wards, {
+    fields: [beds.wardId],
+    references: [wards.id],
+  }),
+  dailyRateAct: one(medicalActs, {
+    fields: [beds.dailyRateActId],
+    references: [medicalActs.id],
+  }),
+  assignments: many(bedAssignments),
+}))
+
+export const bedAssignmentsRelations = relations(bedAssignments, ({ one }) => ({
+  hospitalization: one(hospitalizations, {
+    fields: [bedAssignments.hospitalizationId],
+    references: [hospitalizations.id],
+  }),
+  bed: one(beds, {
+    fields: [bedAssignments.bedId],
+    references: [beds.id],
+  }),
+  assignedByUser: one(users, {
+    fields: [bedAssignments.assignedBy],
     references: [users.id],
   }),
 }))
+
+// extend your existing hospitalizationsRelations with:
+export const hospitalizationsRelations = relations(hospitalizations, ({ one, many }) => ({
+  visit: one(visits, { fields: [hospitalizations.visitId], references: [visits.id] }),
+  patient: one(patients, { fields: [hospitalizations.patientId], references: [patients.id] }),
+  department: one(departments, { fields: [hospitalizations.departmentId], references: [departments.id] }),
+  doctor: one(users, { fields: [hospitalizations.doctorId], references: [users.id] }),
+  service: one(services, { fields: [hospitalizations.serviceId], references: [services.id] }),
+  bedAssignments: many(bedAssignments),
+}))
+
+
+// export const hospitalizationsRelations = relations(hospitalizations, ({ one }) => ({
+//   visit: one(visits, {
+//     fields: [hospitalizations.visitId],
+//     references: [visits.id],
+//   }),
+//   patient: one(patients, {
+//     fields: [hospitalizations.patientId],
+//     references: [patients.id],
+//   }),
+//   department: one(departments, {
+//     fields: [hospitalizations.departmentId],
+//     references: [departments.id],
+//   }),
+//   doctor: one(users, {
+//     fields: [hospitalizations.doctorId],
+//     references: [users.id],
+//   }),
+// }))
