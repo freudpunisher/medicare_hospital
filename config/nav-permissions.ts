@@ -99,7 +99,7 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
             { title: "Point de Vente / Caisse", href: "/cash-register", iconName: "Landmark" },
             { title: "Sessions de Caisse", href: "/cash-sessions", iconName: "Clock" },
             // { title: "Historique Paiements", href: "/payments", iconName: "CreditCard" },
-            // { title: "Dépenses & Frais", href: "/expenses", iconName: "ArrowDownCircle" },
+            { title: "Dépenses & Frais", href: "/expenses", iconName: "ArrowDownCircle" },
             // { title: "Journal Comptable", href: "/accounting-journal", iconName: "BookOpen" },
             { title: "Tableau de Bord Finance", href: "/finance", iconName: "BarChart3" },
         ]

@@ -82,6 +82,7 @@ export default function CashSessionsPage() {
     openingBalance: number
     pharmacyRevenue: number
     actsRevenue: number
+    totalExpenses: number
     expectedIncome: number
     expectedBalance: number
   } | null>(null)
@@ -138,10 +139,19 @@ export default function CashSessionsPage() {
     if (!openForm.cashRegisterId) return
     setSaving(true)
     try {
-      // Get current user (mocking for now, ideally from auth state)
       const userRes = await fetch("/api/auth/me")
       const userJson = await userRes.json()
       const userId = userJson.data.id
+
+      // Check if user already has an open session
+      const existingRes = await fetch(`/api/finance/cash-sessions?status=open&openedBy=${userId}`)
+      const existingJson = await existingRes.json()
+      const existing = existingJson.data || []
+      if (existing.length > 0) {
+        toast.error("Vous avez déjà une session ouverte. Veuillez la fermer avant d'en ouvrir une nouvelle.")
+        setSaving(false)
+        return
+      }
 
       const res = await fetch("/api/finance/cash-sessions", {
         method: "POST",
@@ -351,6 +361,15 @@ export default function CashSessionsPage() {
                   </div>
                   <span className="font-black text-emerald-600">
                     {loadingExpected ? <Loader2 className="size-4 animate-spin" /> : `+${expectedData?.expectedIncome.toLocaleString() || "0"} FBU`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-4 rounded-2xl bg-white border border-rose-200">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase text-rose-600">Dépenses</span>
+                    <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">Charges de la session</span>
+                  </div>
+                  <span className="font-black text-rose-600">
+                    {loadingExpected ? <Loader2 className="size-4 animate-spin" /> : `-${expectedData?.totalExpenses.toLocaleString() || "0"} FBU`}
                   </span>
                 </div>
                 <div className="p-6 rounded-3xl bg-slate-900 text-white shadow-xl shadow-slate-900/10">

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag, CreditCard, History as HistoryIcon, Landmark } from "lucide-react"
+import { Search, Plus, Trash2, User, UserPlus, Shield, ShieldOff, Check, Loader2, Printer, Banknote, Smartphone, Tag, CreditCard, History as HistoryIcon, Landmark, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -187,28 +187,21 @@ export default function BillingPage() {
       .catch((err) => console.error("Failed to load patient from URL", err))
   }, [])
 
-  // Fetch acts, services, and open cash sessions on mount
+  // Fetch acts and services on mount
   useEffect(() => {
     async function fetchInitialData() {
       setLoadingActs(true)
       setLoadingServices(true)
       try {
-        const [actsRes, servicesRes, sessionsRes] = await Promise.all([
+        const [actsRes, servicesRes] = await Promise.all([
           fetch("/api/acts/list"),
-          fetch("/api/services/list?active=true"),
-          fetch("/api/finance/cash-sessions?status=open")
+          fetch("/api/services/list?active=true")
         ])
         const actsData = await actsRes.json()
         const servicesData = await servicesRes.json()
-        const sessionsData = await sessionsRes.json()
 
         if (actsRes.ok) setActs(actsData.data || [])
         if (servicesRes.ok) setServices(servicesData.data || [])
-        if (sessionsRes.ok) {
-          const sessions = sessionsData.data || []
-          setOpenSessions(sessions)
-          if (sessions.length > 0) setSelectedSessionId(sessions[0].id)
-        }
       } catch (err) {
         console.error("Failed to fetch initial data")
       } finally {
@@ -218,6 +211,19 @@ export default function BillingPage() {
     }
     fetchInitialData()
   }, [])
+
+  // Fetch current user's open cash session
+  useEffect(() => {
+    if (!user?.id) return
+    fetch(`/api/finance/cash-sessions?status=open&openedBy=${user.id}`)
+      .then(r => r.json())
+      .then(data => {
+        const sessions = data.data || []
+        setOpenSessions(sessions)
+        if (sessions.length > 0) setSelectedSessionId(sessions[0].id)
+      })
+      .catch(() => {})
+  }, [user?.id])
 
   // Search patients
   useEffect(() => {
@@ -1231,23 +1237,21 @@ export default function BillingPage() {
                     </div>
                   )}
 
-                  {openSessions.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      <label className="text-[10px] font-black text-muted-foreground uppercase ml-1 flex items-center gap-1">
-                        <Landmark className="size-3" /> Caisse / Session
-                      </label>
-                      <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Sélectionner une caisse" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {openSessions.map((s: any) => (
-                            <SelectItem key={s.id} value={s.id} className="text-xs">
-                              {s.cashRegister?.name || 'Caisse'} — {new Date(s.openedAt).toLocaleString()}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {openSessions.length > 0 ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                      <Landmark className="size-5 text-emerald-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Caisse Active</p>
+                        <p className="text-xs font-bold text-emerald-800 truncate">{openSessions[0].cashRegister?.name || 'Caisse'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
+                      <AlertCircle className="size-5 text-amber-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Aucune Session Ouverte</p>
+                        <p className="text-[10px] text-amber-600 font-medium">Ouvrez une session de caisse avant de facturer</p>
+                      </div>
                     </div>
                   )}
 
@@ -1330,7 +1334,7 @@ export default function BillingPage() {
                 <Button
                   className={`w-full h-14 font-black text-base shadow-2xl relative overflow-hidden group ${paymentMethod === 'loan' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-slate-900 hover:bg-slate-800'
                     } text-white`}
-                  disabled={items.length === 0 || isSubmitting || (paymentMethod === 'mobile_money' && !paymentReference)}
+                  disabled={items.length === 0 || isSubmitting || (paymentMethod === 'mobile_money' && !paymentReference) || openSessions.length === 0}
                   onClick={handleValidate}
                 >
                   <div className="absolute inset-0 bg-primary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />

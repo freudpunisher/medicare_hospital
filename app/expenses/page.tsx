@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus, Loader2, Landmark, AlertCircle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/table"
 import { PageHeader } from "@/components/page-header"
 import { toast } from "sonner"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 interface Expense {
   id: string
@@ -46,17 +47,34 @@ interface Expense {
 const categories = ["Consommables", "Maintenance", "Services", "Médical", "Utilities", "Divers"]
 
 export default function ExpensesPage() {
+  const { user } = useCurrentUser()
   const [data, setData] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(false)
   const [filterCategory, setFilterCategory] = useState<string>("all")
+  const [openSessions, setOpenSessions] = useState<any[]>([])
   const [form, setForm] = useState({
     description: "",
     amount: "",
     category: "Consommables",
     cashSessionId: "",
   })
+
+  // Fetch current user's open session
+  useEffect(() => {
+    if (!user?.id) return
+    fetch(`/api/finance/cash-sessions?status=open&openedBy=${user.id}`)
+      .then(r => r.json())
+      .then(data => {
+        const sessions = data.data || []
+        setOpenSessions(sessions)
+        if (sessions.length > 0) {
+          setForm(f => ({ ...f, cashSessionId: sessions[0].id }))
+        }
+      })
+      .catch(() => {})
+  }, [user?.id])
 
   useEffect(() => {
     fetchExpenses()
@@ -173,6 +191,26 @@ export default function ExpensesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="pt-2">
+                  {openSessions.length > 0 ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                      <Landmark className="size-5 text-emerald-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Session Active</p>
+                        <p className="text-xs font-bold text-emerald-800 truncate">{openSessions[0]?.cashRegister?.name || 'Caisse'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
+                      <AlertCircle className="size-5 text-amber-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Aucune Session Ouverte</p>
+                        <p className="text-[10px] text-amber-600 font-medium">La dépense ne sera pas liée à une session</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

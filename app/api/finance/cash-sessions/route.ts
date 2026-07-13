@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/db"
-import { cashSessions, pharmacySales, payments, cashRegister } from "@/db/schema"
+import { cashSessions, pharmacySales, payments, cashRegister, expenses } from "@/db/schema"
 import { z } from "zod"
 import { desc, eq, and, gte, lte, sql } from "drizzle-orm"
 
@@ -21,9 +21,14 @@ export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
         const status = searchParams.get("status")
+        const openedBy = searchParams.get("openedBy")
+
+        const conditions = []
+        if (status && status !== "all") conditions.push(eq(cashSessions.status, status))
+        if (openedBy) conditions.push(eq(cashSessions.openedBy, openedBy))
 
         const data = await db.query.cashSessions.findMany({
-            where: status && status !== "all" ? eq(cashSessions.status, status) : undefined,
+            where: conditions.length > 0 ? and(...conditions) : undefined,
             orderBy: desc(cashSessions.openedAt),
             with: {
                 cashRegister: true
@@ -82,19 +87,27 @@ export async function POST(req: Request) {
                 total: sql<string>`sum(${payments.amount})`
             }).from(payments).where(and(
                 eq(payments.paymentMethod, 'cash'),
-                gte(payments.createdAt, openedAt)
+                eq(payments.cashSessionId, validated.id)
             ))
+
+            const [expensesResult] = await db.select({
+                total: sql<string>`sum(${expenses.amount})`
+            }).from(expenses).where(
+                eq(expenses.cashSessionId, validated.id)
+            )
 
             const pharmacyRevenue = parseFloat(pharmacyRevenueResult?.total || "0")
             const actsRevenue = parseFloat(actsRevenueResult?.total || "0")
+            const totalExpenses = parseFloat(expensesResult?.total || "0")
             const expectedTotalIncome = pharmacyRevenue + actsRevenue
-            const expectedBalance = parseFloat(session.openingBalance) + expectedTotalIncome - parseFloat(session.totalExpenses)
+            const expectedBalance = parseFloat(session.openingBalance) + expectedTotalIncome - totalExpenses
 
             const [closedSession] = await db.update(cashSessions).set({
                 status: "closed",
                 closedAt: now,
                 closedBy: validated.closedBy,
                 totalIncome: expectedTotalIncome.toString(),
+                totalExpenses: totalExpenses.toString(),
                 expectedBalance: expectedBalance.toString(),
                 physicalBalance: validated.physicalBalance.toString(),
                 notes: validated.notes

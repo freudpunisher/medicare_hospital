@@ -60,13 +60,7 @@ import { fr } from "date-fns/locale"
 import { InvoiceA4 } from "@/components/billing/invoice-a4"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 interface Invoice {
     id: string
@@ -86,6 +80,7 @@ interface Invoice {
 }
 
 export default function InvoicesPage() {
+    const { user } = useCurrentUser()
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
@@ -110,7 +105,7 @@ export default function InvoicesPage() {
             try {
                 const [invRes, sessRes] = await Promise.all([
                     fetch('/api/billing/invoices/list'),
-                    fetch('/api/finance/cash-sessions?status=open')
+                    fetch(`/api/finance/cash-sessions?status=open&openedBy=${user?.id || ''}`)
                 ])
                 const invData = await invRes.json()
                 if (invData.success) {
@@ -128,8 +123,8 @@ export default function InvoicesPage() {
                 setLoading(false)
             }
         }
-        fetchInvoices()
-    }, [])
+        if (user) fetchInvoices()
+    }, [user?.id])
 
     const handlePrintA4 = (invoice: Invoice) => {
         setPrintingInvoice(invoice)
@@ -815,29 +810,27 @@ export default function InvoicesPage() {
                                         </div>
                                     )}
 
-                                    {openSessions.length > 0 && (
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-muted-foreground uppercase ml-1 flex items-center gap-1">
-                                                <Landmark className="size-3" /> Caisse / Session
-                                            </label>
-                                            <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
-                                                <SelectTrigger className="h-9 text-xs">
-                                                    <SelectValue placeholder="Sélectionner une caisse" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {openSessions.map((s: any) => (
-                                                        <SelectItem key={s.id} value={s.id} className="text-xs">
-                                                            {s.cashRegister?.name || 'Caisse'} — {new Date(s.openedAt).toLocaleString()}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                    {openSessions.length > 0 ? (
+                                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+                                            <Landmark className="size-5 text-emerald-600 shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Caisse Active</p>
+                                                <p className="text-xs font-bold text-emerald-800 truncate">{openSessions[0]?.cashRegister?.name || 'Caisse'}</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3">
+                                            <AlertCircle className="size-5 text-amber-600 shrink-0" />
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Aucune Session Ouverte</p>
+                                                <p className="text-[10px] text-amber-600 font-medium">Ouvrez une session de caisse avant d'encaisser</p>
+                                            </div>
                                         </div>
                                     )}
 
                                     <Button
                                         className="w-full h-12 font-black bg-orange-600 hover:bg-orange-700 text-white"
-                                        disabled={isPaying || (paymentMethod === 'mobile_money' && !paymentReference)}
+                                        disabled={isPaying || (paymentMethod === 'mobile_money' && !paymentReference) || openSessions.length === 0}
                                         onClick={handlePayment}
                                     >
                                         {isPaying ? (
@@ -922,7 +915,7 @@ export default function InvoicesPage() {
                         />
                     </div>
                     <DialogFooter>
-                                        <Button variant="outline" onClick={() => { setCancelOpen(false); setCancelReason(''); setCancellingInvoice(null) }}>Retour</Button>
+                        <Button variant="outline" onClick={() => { setCancelOpen(false); setCancelReason(''); setCancellingInvoice(null) }}>Retour</Button>
                         <Button
                             className="bg-red-600 hover:bg-red-700 text-white"
                             disabled={isCancelling || !cancelReason.trim()}
