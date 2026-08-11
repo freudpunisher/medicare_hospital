@@ -78,7 +78,7 @@ export async function GET(req: Request) {
         unit: med.unit,
         barcode: med.barcode,
         sellingPrice: med.sellingPrice,
-        categoryName: med.category?.name || "Non classé",
+        categoryName: (med.category as any)?.name || "Non classé",
         categoryId: med.categoryId,
         totalAvailable,
         lots: activeLots.map((l) => ({
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
         id: m.id,
         type: m.type,
         quantity: m.quantity,
-        medicineName: m.medicine?.name || "Inconnu",
+        medicineName: (m.medicine as any)?.name || "Inconnu",
         createdAt: m.createdAt,
       })),
     })

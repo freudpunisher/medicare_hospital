@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { invoices, invoiceItems, payments, partnershipVisitLogs, partnershipDiscountHistory } from '@/db/schema'
+import { postAutoJournalEntry } from '@/lib/accounting'
 
 export async function POST(req: Request) {
     try {
@@ -69,6 +70,17 @@ export async function POST(req: Request) {
                     cashSessionId: cashSessionId || null,
                     notes: `Automatic payment on invoice creation${discountAmount > 0 ? ` (Reduction: ${discountAmount} FBU)` : ''}${partnershipDiscountAmount > 0 ? ` (Corporate: ${partnershipDiscountAmount} FBU)` : ''}`,
                 })
+
+                if (paymentMethod !== 'loan' && Number(patientAmount) > 0) {
+                    await postAutoJournalEntry(tx, {
+                        eventType: `invoice_payment_${paymentMethod}`,
+                        fallbackEventType: 'invoice_payment_cash',
+                        amount: patientAmount,
+                        label: `Règlement facture ${invoiceNumber}`,
+                        referenceType: 'invoice',
+                        referenceId: invoice.id,
+                    })
+                }
             }
 
             // Save partnership visit log and discount history

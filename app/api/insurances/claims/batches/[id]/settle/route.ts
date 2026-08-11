@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { insuranceBatches, insuranceClaims, insurancePayments, invoices } from '@/db/schema'
+import { postAutoJournalEntry } from '@/lib/accounting'
 import { eq } from 'drizzle-orm'
 
 export async function POST(
@@ -38,6 +39,16 @@ export async function POST(
                 referenceNumber,
                 notes,
             }).returning()
+
+            if (Number(amount) > 0) {
+                await postAutoJournalEntry(tx, {
+                    eventType: 'insurance_settlement',
+                    amount,
+                    label: `Règlement bordereau ${batch.batchNumber}`,
+                    referenceType: 'insurance_batch',
+                    referenceId: batch.id,
+                })
+            }
 
             // 3. Update the batch status
             await tx.update(insuranceBatches)

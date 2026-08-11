@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { invoices, invoiceItems, medicalActs, payments } from '@/db/schema'
+import { postAutoJournalEntry } from '@/lib/accounting'
 import { eq } from 'drizzle-orm'
 
 export async function GET(
@@ -66,7 +67,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 })
     }
 
-    const [updated] = await db.transaction(async (tx) => {
+    const updated = await db.transaction(async (tx) => {
       if (status === 'cancelled') {
         await tx.delete(payments).where(eq(payments.invoiceId, invoiceId))
       }
@@ -78,14 +79,16 @@ export async function PATCH(
       const updateData: any = { status, updatedAt: new Date() }
       if (notes) updateData.notes = notes
 
-      return await tx
+      const [row] = await tx
         .update(invoices)
         .set(updateData)
         .where(eq(invoices.id, invoiceId))
         .returning()
+
+      return row
     })
 
-    return NextResponse.json({ success: true, data: updated[0] })
+    return NextResponse.json({ success: true, data: updated })
   } catch (error) {
     console.error('Failed to update invoice:', error)
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 })
@@ -118,15 +121,27 @@ export async function PUT(
         }
 
         const result = await db.transaction(async (tx) => {
+            const paymentAmount = Number(amount ?? invoice.patientAmount)
             await tx.insert(payments).values({
                 invoiceId,
                 patientId: invoice.patientId,
-                amount: (amount ?? invoice.patientAmount).toString(),
+                amount: paymentAmount.toString(),
                 paymentMethod,
                 referenceNumber: paymentReference || null,
                 cashSessionId: cashSessionId || null,
                 notes: 'Payment recorded from invoice details',
             })
+
+            if (paymentMethod !== 'loan' && paymentAmount > 0) {
+                await postAutoJournalEntry(tx, {
+                    eventType: `invoice_payment_${paymentMethod}`,
+                    fallbackEventType: 'invoice_payment_cash',
+                    amount: paymentAmount,
+                    label: `Règlement facture ${invoice.invoiceNumber}`,
+                    referenceType: 'invoice',
+                    referenceId: invoiceId,
+                })
+            }
 
             const [updated] = await tx
                 .update(invoices)

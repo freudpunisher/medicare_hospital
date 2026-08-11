@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { invoices, patients, insuranceInvoices } from '@/db/schema'
-import { and, eq, gt, isNull, sql } from 'drizzle-orm'
+import { invoices, patientInsurances } from '@/db/schema'
+import { and, eq, gt, sql } from 'drizzle-orm'
 
 export async function GET(req: Request) {
     try {
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
                 patient: {
                     with: {
                         insurances: {
-                            where: (pi, { eq }) => eq(pi.insuranceId, insuranceId),
+                            where: eq(patientInsurances.insuranceId, insuranceId),
                             with: {
                                 insurance: true
                             }
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
         })
 
         // Filter to only include those that actually match the requested insurance
-        const filtered = pendingInvoices.filter(inv =>
+        const filtered = (pendingInvoices as any[]).filter(inv =>
             inv.patient && inv.patient.insurances && inv.patient.insurances.some((ins: any) => ins.insuranceId === insuranceId)
         )
 

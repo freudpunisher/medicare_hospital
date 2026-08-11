@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 
     const total = countResult[0]?.count || 0
 
-    let query = db.select().from(provinces)
+    let query = db.select().from(provinces).$dynamic()
     if (search) {
       query = query.where(whereCondition)
     }

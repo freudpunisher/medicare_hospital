@@ -593,7 +593,7 @@ export default function ServicesPage() {
                 <p className="text-[11px] font-bold text-muted-foreground">
                   {filteredData.length} service{filteredData.length > 1 ? "s" : ""} affiché{filteredData.length > 1 ? "s" : ""}
                   {filteredData.length < data.length && (
-                    <span className="text-muted-foreground/60"> (sur {data.total} total)</span>
+                    <span className="text-muted-foreground/60"> (sur {data.length} total)</span>
                   )}
                 </p>
                 <div className="flex gap-2 text-[10px] text-muted-foreground">

@@ -63,6 +63,7 @@ export default function CashSessionsPage() {
   const [data, setData] = useState<Session[]>([])
   const [registers, setRegisters] = useState<Register[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [openModal, setOpenModal] = useState(false)
   const [closeModal, setCloseModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
@@ -120,14 +121,17 @@ export default function CashSessionsPage() {
   async function fetchData() {
     setLoading(true)
     try {
-      const [sessRes, regRes] = await Promise.all([
+      const [sessRes, regRes, meRes] = await Promise.all([
         fetch("/api/finance/cash-sessions"),
-        fetch("/api/finance/cash-registers")
+        fetch("/api/finance/cash-registers"),
+        fetch("/api/auth/me")
       ])
       const sessJson = await sessRes.json()
       const regJson = await regRes.json()
+      const meJson = await meRes.json()
       if (sessRes.ok) setData(sessJson.data)
       if (regRes.ok) setRegisters(regJson.data)
+      if (meRes.ok && meJson.data?.id) setCurrentUserId(meJson.data.id)
     } catch (err) {
       toast.error("Erreur de chargement")
     } finally {
@@ -169,6 +173,9 @@ export default function CashSessionsPage() {
         toast.success("Session ouverte")
         setOpenModal(false)
         fetchData()
+      } else {
+        const json = await res.json()
+        toast.error(json.error || "Erreur")
       }
     } catch (err) {
       toast.error("Erreur réseau")
@@ -202,6 +209,9 @@ export default function CashSessionsPage() {
         toast.success("Session clôturée avec succès")
         setCloseModal(false)
         fetchData()
+      } else {
+        const json = await res.json()
+        toast.error(json.error || "Erreur")
       }
     } catch (err) {
       toast.error("Erreur")
@@ -312,7 +322,7 @@ export default function CashSessionsPage() {
                     )}
                   </TableCell>
                   <TableCell className="pr-8 text-right">
-                    {session.status === "open" && (
+                    {session.status === "open" && session.openedBy === currentUserId && (
                       <Button
                         size="sm"
                         className="rounded-full h-8 px-4 font-black uppercase text-[9px] tracking-widest bg-slate-900 hover:bg-black text-white"

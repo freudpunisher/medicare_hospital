@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const total = countResult[0]?.count || 0
 
     // Get paginated data
-    let query = db.select().from(users)
+    let query = db.select().from(users).$dynamic()
     if (search) {
       query = query.where(whereCondition)
     }

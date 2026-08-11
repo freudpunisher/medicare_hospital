@@ -70,7 +70,7 @@ export async function POST(
           numericValue: numericValue,
           unit: v.unit || param.unit,
           interpretation: interpretation as any,
-          flagged: interpretation && interpretation !== "normal",
+          flagged: !!(interpretation && interpretation !== "normal"),
           referenceRangeUsed: param.referenceRangeText || (
             param.referenceRangeLow || param.referenceRangeHigh
               ? `${param.referenceRangeLow || "—"} — ${param.referenceRangeHigh || "—"}`

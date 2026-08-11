@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/db"
 import { cashSessions, pharmacySales, payments, cashRegister, expenses } from "@/db/schema"
+import { postAutoJournalEntry } from "@/lib/accounting"
 import { z } from "zod"
 import { desc, eq, and, gte, lte, sql } from "drizzle-orm"
 
@@ -48,6 +49,14 @@ export async function POST(req: Request) {
 
         if (action === "open") {
             const validated = openSessionSchema.parse(body.data)
+
+            const existing = await db.query.cashSessions.findFirst({
+                where: and(eq(cashSessions.openedBy, validated.openedBy), eq(cashSessions.status, "open"))
+            })
+            if (existing) {
+                return NextResponse.json({ error: "Vous avez déjà une session ouverte. Veuillez la fermer avant d'en ouvrir une nouvelle." }, { status: 400 })
+            }
+
             const [newSession] = await db.insert(cashSessions).values({
                 cashRegisterId: validated.cashRegisterId,
                 openingBalance: validated.openingBalance.toString(),
@@ -61,59 +70,75 @@ export async function POST(req: Request) {
         if (action === "close") {
             const validated = closeSessionSchema.parse(body.data)
 
-            // 1. Calculate Expected Balance
             const session = await db.query.cashSessions.findFirst({
                 where: eq(cashSessions.id, validated.id)
             })
 
             if (!session) return NextResponse.json({ error: "Session introuvable" }, { status: 404 })
 
-            const openedAt = session.openedAt
-            const now = new Date()
+            if (session.openedBy !== validated.closedBy) {
+                return NextResponse.json({ error: "Seul l'utilisateur ayant ouvert cette session peut la fermer." }, { status: 403 })
+            }
 
-            // Sum Pharmacy Sales (Cash) since openedAt
-            // Note: For absolute precision, we'd filter by the user assigned to this register
-            // but for now we'll sum all cash transactions in this timeframe for simplicity,
-            // unless we want to filter by openedBy user.
+            const result = await db.transaction(async (tx) => {
+                const openedAt = session.openedAt
+                const now = new Date()
 
-            const [pharmacyRevenueResult] = await db.select({
-                total: sql<string>`sum(${pharmacySales.totalAmount})`
-            }).from(pharmacySales).where(and(
-                eq(pharmacySales.paymentMethod, 'cash'),
-                gte(pharmacySales.createdAt, openedAt)
-            ))
+                // Sum Pharmacy Sales (Cash) since openedAt
+                const [pharmacyRevenueResult] = await tx.select({
+                    total: sql<string>`sum(${pharmacySales.totalAmount})`
+                }).from(pharmacySales).where(and(
+                    eq(pharmacySales.paymentMethod, 'cash'),
+                    gte(pharmacySales.createdAt, openedAt)
+                ))
 
-            const [actsRevenueResult] = await db.select({
-                total: sql<string>`sum(${payments.amount})`
-            }).from(payments).where(and(
-                eq(payments.paymentMethod, 'cash'),
-                eq(payments.cashSessionId, validated.id)
-            ))
+                const [actsRevenueResult] = await tx.select({
+                    total: sql<string>`sum(${payments.amount})`
+                }).from(payments).where(and(
+                    eq(payments.paymentMethod, 'cash'),
+                    eq(payments.cashSessionId, validated.id)
+                ))
 
-            const [expensesResult] = await db.select({
-                total: sql<string>`sum(${expenses.amount})`
-            }).from(expenses).where(
-                eq(expenses.cashSessionId, validated.id)
-            )
+                const [expensesResult] = await tx.select({
+                    total: sql<string>`sum(${expenses.amount})`
+                }).from(expenses).where(
+                    eq(expenses.cashSessionId, validated.id)
+                )
 
-            const pharmacyRevenue = parseFloat(pharmacyRevenueResult?.total || "0")
-            const actsRevenue = parseFloat(actsRevenueResult?.total || "0")
-            const totalExpenses = parseFloat(expensesResult?.total || "0")
-            const expectedTotalIncome = pharmacyRevenue + actsRevenue
-            const expectedBalance = parseFloat(session.openingBalance) + expectedTotalIncome - totalExpenses
+                const pharmacyRevenue = parseFloat(pharmacyRevenueResult?.total || "0")
+                const actsRevenue = parseFloat(actsRevenueResult?.total || "0")
+                const totalExpenses = parseFloat(expensesResult?.total || "0")
+                const expectedTotalIncome = pharmacyRevenue + actsRevenue
+                const expectedBalance = parseFloat(session.openingBalance) + expectedTotalIncome - totalExpenses
 
-            const [closedSession] = await db.update(cashSessions).set({
-                status: "closed",
-                closedAt: now,
-                closedBy: validated.closedBy,
-                totalIncome: expectedTotalIncome.toString(),
-                totalExpenses: totalExpenses.toString(),
-                expectedBalance: expectedBalance.toString(),
-                physicalBalance: validated.physicalBalance.toString(),
-                notes: validated.notes
-            }).where(eq(cashSessions.id, validated.id)).returning()
+                const [closedSession] = await tx.update(cashSessions).set({
+                    status: "closed",
+                    closedAt: now,
+                    closedBy: validated.closedBy,
+                    totalIncome: expectedTotalIncome.toString(),
+                    totalExpenses: totalExpenses.toString(),
+                    expectedBalance: expectedBalance.toString(),
+                    physicalBalance: validated.physicalBalance.toString(),
+                    notes: validated.notes
+                }).where(eq(cashSessions.id, validated.id)).returning()
 
-            return NextResponse.json({ data: closedSession })
+                const difference = validated.physicalBalance - expectedBalance
+                if (Math.abs(difference) >= 0.01) {
+                    await postAutoJournalEntry(tx, {
+                        eventType: difference > 0 ? "cash_session_surplus" : "cash_session_deficit",
+                        amount: Math.abs(difference),
+                        label: difference > 0
+                            ? `Excédent de caisse (session ${validated.id.split("-")[0]})`
+                            : `Déficit de caisse (session ${validated.id.split("-")[0]})`,
+                        referenceType: "cash_session",
+                        referenceId: validated.id,
+                    })
+                }
+
+                return closedSession
+            })
+
+            return NextResponse.json({ data: result })
         }
 
         return NextResponse.json({ error: "Action non supportée" }, { status: 400 })

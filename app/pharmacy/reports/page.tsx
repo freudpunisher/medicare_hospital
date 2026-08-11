@@ -117,12 +117,11 @@ export default function PharmacyReportsPage() {
                 <PageHeader
                     title="Rapports Pharmacie"
                     description="Analyse des ventes, des achats et valorisation du stock"
-                    action={
-                        <Button onClick={handlePrint} className="rounded-2xl gap-2 font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">
-                            <Printer className="size-4" /> Finaliser & Imprimer
-                        </Button>
-                    }
-                />
+                >
+                    <Button onClick={handlePrint} className="rounded-2xl gap-2 font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">
+                        <Printer className="size-4" /> Finaliser & Imprimer
+                    </Button>
+                </PageHeader>
             </div>
 
             {/* Tabs for sales vs purchases */}

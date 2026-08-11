@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/db"
 import { pharmacySales, pharmacySaleItems, stockMovements, medicines } from "@/db/schema"
 import { consumeStockFEFO } from "@/lib/pharmacy/stock"
+import { postAutoJournalEntry } from "@/lib/accounting"
 import { z } from "zod"
 import { desc, eq } from "drizzle-orm"
 
@@ -76,6 +77,14 @@ export async function POST(req: Request) {
             await tx.insert(stockMovements).values(
                 movementsToCreate.map(sm => ({ ...sm, referenceId: newSale.id }))
             )
+
+            await postAutoJournalEntry(tx, {
+                eventType: "pharmacy_sale",
+                amount: subtotal,
+                label: `Vente pharmacie #${newSale.id.split("-")[0]}`,
+                referenceType: "pharmacy_sale",
+                referenceId: newSale.id,
+            })
 
             return newSale
         })

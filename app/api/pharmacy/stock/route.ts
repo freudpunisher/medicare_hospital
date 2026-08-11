@@ -26,7 +26,7 @@ export async function GET() {
                 genericName: med.genericName,
                 unit: med.unit,
                 sellingPrice: med.sellingPrice,
-                categoryName: med.category?.name || "Non classé",
+                categoryName: (med.category as any)?.name || "Non classé",
                 totalAvailable: totalAvailable.toString(),
                 lots: med.lots
             }

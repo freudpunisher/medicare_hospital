@@ -30,7 +30,9 @@ export const NAV_PERMISSIONS: NavPermission[] = [
     { group: "Billing", roles: ["admin", "cashier", "user"] },
     { group: "Pharmacy", roles: ["admin", "pharmacist", "cashier", "user"] },
     { group: "Finance", roles: ["admin", "cashier", "user"] },
+    { group: "Comptabilité", roles: ["admin", "cashier", "user"] },
     { group: "System", roles: ["admin", "user"] },
+    { group: "Hospital", roles: ["admin", "doctor", "user"] },
     { group: "Corporate", roles: ["admin", "user"] },
 ]
 
@@ -69,6 +71,7 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
         items: [
             { title: "Dashboard", href: "/lab", iconName: "FlaskConical" },
             { title: "Demandes", href: "/lab/orders", iconName: "ClipboardList" },
+            { title: "Résultats", href: "/lab/results", iconName: "FileCheck" },
             { title: "Catalogue Tests", href: "/lab/tests", iconName: "Microscope" },
         ]
     },
@@ -114,9 +117,27 @@ export const NAV_GROUPS_CONFIG: NavGroupDefinition[] = [
         ]
     },
     {
+        label: "Comptabilité",
+        items: [
+            { title: "Plan Comptable", href: "/accounting/accounts", iconName: "BookOpen" },
+            { title: "Journal", href: "/accounting/journal", iconName: "NotebookPen" },
+            { title: "Règles d'Automatisation", href: "/accounting/mappings", iconName: "Workflow" },
+            { title: "Rapports", href: "/accounting/reports", iconName: "BarChart3" },
+        ]
+    },
+    {
         label: "System",
         items: [
             { title: "Parametrage", href: "/parametrage", iconName: "Settings" },
+        ]
+    },
+    {
+        label: "Hospital",
+        items: [
+            { title: "Dashboard", href: "/hospital", iconName: "Hospital" },
+            { title: "Admissions", href: "/hospital/admissions", iconName: "ClipboardCheck" },
+            { title: "Services", href: "/hospital/wards", iconName: "DoorOpen" },
+            { title: "Lits", href: "/hospital/beds", iconName: "BedDouble" },
         ]
     },
     {

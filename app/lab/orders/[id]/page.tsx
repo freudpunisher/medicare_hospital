@@ -49,6 +49,7 @@ export default function LabOrderDetailPage() {
   const [tab, setTab] = useState<"info" | "results">("info")
   const [resultNotes, setResultNotes] = useState("")
   const [values, setValues] = useState<Record<string, { value: string; comment: string }>>({})
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   useEffect(() => { if (id) fetchOrder() }, [id])
 
@@ -101,6 +102,22 @@ export default function LabOrderDetailPage() {
       return
     }
 
+    // Validate values
+    const errors: string[] = []
+    for (const p of params) {
+      const val = values[p.id]?.value?.trim()
+      if (!val) {
+        errors.push(`Valeur requise pour "${p.parameterName}"`)
+      } else if (!isNaN(Number(val)) && val.includes(".") && val.split(".")[1]?.length > 4) {
+        // valid decimal
+      }
+    }
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+    setValidationErrors([])
+
     setSaving(true)
     try {
       const payload = {
@@ -143,13 +160,7 @@ export default function LabOrderDetailPage() {
     <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
       <PageHeader
         title={order.labTest?.name || "Demande"}
-        description={
-          <div className="flex items-center gap-2 text-sm font-bold">
-            <span>{order.patient?.firstName} {order.patient?.lastName}</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="font-mono text-xs">{order.orderNumber}</span>
-          </div>
-        }
+        description={`${order.patient?.firstName} ${order.patient?.lastName} • ${order.orderNumber}`}
       >
         <Button variant="outline" className="rounded-full h-10 px-6 font-black uppercase text-[10px] tracking-widest" onClick={() => router.push("/lab/orders")}>
           <ArrowLeft className="size-4 mr-2" />Retour
@@ -241,6 +252,17 @@ export default function LabOrderDetailPage() {
             <CardTitle className="text-xs font-black uppercase tracking-widest">Saisie des Résultats</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {validationErrors.length > 0 && (
+              <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
+                <AlertCircle className="size-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-red-700 mb-1">Erreurs de validation</p>
+                  <ul className="text-xs text-red-600 font-medium space-y-0.5">
+                    {validationErrors.map((e, i) => <li key={i}>• {e}</li>)}
+                  </ul>
+                </div>
+              </div>
+            )}
             {parameters.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">Ce test n'a pas de paramètres définis. Ajoutez-en dans le catalogue.</p>
             ) : (
@@ -275,7 +297,7 @@ export default function LabOrderDetailPage() {
                           className="h-10 rounded-xl font-bold text-sm"
                           placeholder="Saisir la valeur..."
                           value={values[param.id]?.value ?? ""}
-                          onChange={e => setValues(v => ({ ...v, [param.id]: { ...v[param.id], value: e.target.value, comment: v[param.id]?.comment || "" } }))}
+                          onChange={e => { setValidationErrors([]); setValues(v => ({ ...v, [param.id]: { ...v[param.id], value: e.target.value, comment: v[param.id]?.comment || "" } })) }}
                           readOnly={hasResults}
                         />
                       </div>

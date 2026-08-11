@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { insuranceClaims, insurancePayments, invoices } from '@/db/schema'
+import { postAutoJournalEntry } from '@/lib/accounting'
 import { eq } from 'drizzle-orm'
 
 export async function POST(
@@ -34,6 +35,16 @@ export async function POST(
                 referenceNumber,
                 notes,
             }).returning()
+
+            if (Number(amount) > 0) {
+                await postAutoJournalEntry(tx, {
+                    eventType: 'insurance_settlement',
+                    amount,
+                    label: `Règlement assurance #${claim.id.split('-')[0]}`,
+                    referenceType: 'insurance_claim',
+                    referenceId: claim.id,
+                })
+            }
 
             // 3. Update the claim status
             await tx.update(insuranceClaims)

@@ -1,4 +1,5 @@
 import { db } from './index'
+import { seedAccounting } from './seed.accounting'
 import {
   departments,
   specialties,
@@ -465,6 +466,87 @@ async function seed() {
           requiresAuthorization: false,
           isActive: true,
         },
+        // Lab-specific acts
+        {
+          code: 'LAB-GLYC',
+          name: 'Glycémie à Jeun',
+          serviceId: svcMap['LAB'],
+          basePrice: '10.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-CRP',
+          name: 'CRP (Protéine C Réactive)',
+          serviceId: svcMap['LAB'],
+          basePrice: '15.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-UREA-CREAT',
+          name: 'Urée + Créatinine',
+          serviceId: svcMap['LAB'],
+          basePrice: '15.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-BILAN-LIP',
+          name: 'Bilan Lipidique',
+          serviceId: svcMap['LAB'],
+          basePrice: '30.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-SEDIMENT',
+          name: 'Sédiment Urinaire',
+          serviceId: svcMap['LAB'],
+          basePrice: '20.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-VS',
+          name: 'Vitesse de Sédimentation',
+          serviceId: svcMap['LAB'],
+          basePrice: '10.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-VIH',
+          name: 'Sérologie VIH',
+          serviceId: svcMap['LAB'],
+          basePrice: '15.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-GROUP-RH',
+          name: 'Groupage Rhésus',
+          serviceId: svcMap['LAB'],
+          basePrice: '12.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-TP-TCA',
+          name: 'TP / TCA (Hémostase)',
+          serviceId: svcMap['LAB'],
+          basePrice: '25.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
+        {
+          code: 'LAB-IONO',
+          name: 'Ionogramme Sanguin',
+          serviceId: svcMap['LAB'],
+          basePrice: '20.00',
+          requiresAuthorization: false,
+          isActive: true,
+        },
       ])
       .returning()
 
@@ -496,124 +578,40 @@ async function seed() {
     const labTestsData = await db
       .insert(labTests)
       .values([
-        {
-          code: 'NFS',
-          name: 'Numération Formule Sanguine',
-          serviceId: svcMap['LAB'],
-          testType: 'hematology',
-          price: '25.00',
-          turnaroundTimeHours: '2',
-          description: 'Hémogramme complet avec formule leucocytaire et numération plaquettaire',
-        },
-        {
-          code: 'GLYC',
-          name: 'Glycémie à Jeun',
-          serviceId: svcMap['LAB'],
-          testType: 'chemistry',
-          price: '10.00',
-          turnaroundTimeHours: '1',
-          description: 'Glycémie veineuse à jeun (Fasting Blood Glucose)',
-        },
-        {
-          code: 'CRP',
-          name: 'CRP (Protéine C Réactive)',
-          serviceId: svcMap['LAB'],
-          testType: 'immunology',
-          price: '15.00',
-          turnaroundTimeHours: '2',
-          description: 'Dosage de la Protéine C Réactive, marqueur de l\'inflammation',
-        },
-        {
-          code: 'UREA-CREAT',
-          name: 'Urée + Créatinine',
-          serviceId: svcMap['LAB'],
-          testType: 'chemistry',
-          price: '15.00',
-          turnaroundTimeHours: '2',
-          description: 'Bilan rénal (Urée et Créatinine sanguines)',
-        },
-        {
-          code: 'BILAN-HEP',
-          name: 'Bilan Hépatique',
-          serviceId: svcMap['LAB'],
-          testType: 'chemistry',
-          price: '35.00',
-          turnaroundTimeHours: '3',
-          description: 'Bilan hépatique complet (ALAT, ASAT, PAL, GGT, Bilirubines)',
-        },
-        {
-          code: 'BILAN-LIP',
-          name: 'Bilan Lipidique',
-          serviceId: svcMap['LAB'],
-          testType: 'chemistry',
-          price: '30.00',
-          turnaroundTimeHours: '3',
-          description: 'Profil lipidique (Cholestérol total, HDL, LDL, Triglycérides)',
-        },
-        {
-          code: 'SEDIMENT',
-          name: 'Sédiment Urinaire',
-          serviceId: svcMap['LAB'],
-          testType: 'urinalysis',
-          price: '20.00',
-          turnaroundTimeHours: '2',
-          description: 'Examen cytobactériologique des urines (ECBU)',
-        },
-        {
-          code: 'VS',
-          name: 'Vitesse de Sédimentation',
-          serviceId: svcMap['LAB'],
-          testType: 'hematology',
-          price: '10.00',
-          turnaroundTimeHours: '2',
-          description: 'Vitesse de sédimentation (VS) à H1 et H2',
-        },
-        {
-          code: 'VIH-SERO',
-          name: 'Sérologie VIH',
-          serviceId: svcMap['LAB'],
-          testType: 'serology',
-          price: '15.00',
-          turnaroundTimeHours: '24',
-          description: 'Test sérologique VIH (dépistage)',
-        },
-        {
-          code: 'GROUP-RH',
-          name: 'Groupage Rhésus',
-          serviceId: svcMap['LAB'],
-          testType: 'immunology',
-          price: '12.00',
-          turnaroundTimeHours: '1',
-          description: 'Groupage sanguin ABO et Rhésus D',
-        },
-        {
-          code: 'TP-TCA',
-          name: 'TP / TCA (Hémostase)',
-          serviceId: svcMap['LAB'],
-          testType: 'hematology',
-          price: '25.00',
-          turnaroundTimeHours: '3',
-          description: 'Bilan de coagulation (Taux de Prothrombine, TCA)',
-        },
-        {
-          code: 'IONO',
-          name: 'Ionogramme Sanguin',
-          serviceId: svcMap['LAB'],
-          testType: 'chemistry',
-          price: '20.00',
-          turnaroundTimeHours: '2',
-          description: 'Ionogramme sanguin (Na+, K+, Cl-, Ca2+)',
-        },
+        { medicalActId: actsMap['LAB-CBC'], testType: 'hematology', turnaroundTimeHours: '2', instructions: 'Prélever sur tube EDTA. 2 mL de sang veineux.', description: 'Hémogramme complet avec formule leucocytaire et numération plaquettaire' },
+        { medicalActId: actsMap['LAB-GLYC'], testType: 'chemistry', turnaroundTimeHours: '1', instructions: 'Patient à jeun depuis 8h minimum. Prélever sur tube fluorure.', description: 'Glycémie veineuse à jeun (Fasting Blood Glucose)' },
+        { medicalActId: actsMap['LAB-CRP'], testType: 'immunology', turnaroundTimeHours: '2', instructions: 'Prélever sur tube sec. 3 mL de sang.', description: 'Dosage de la Protéine C Réactive, marqueur de l\'inflammation' },
+        { medicalActId: actsMap['LAB-UREA-CREAT'], testType: 'chemistry', turnaroundTimeHours: '2', instructions: 'Prélever sur tube hépariné. 3 mL de sang.', description: 'Bilan rénal (Urée et Créatinine sanguines)' },
+        { medicalActId: actsMap['LAB-BIO'], testType: 'chemistry', turnaroundTimeHours: '3', instructions: 'Prélever sur tube sec. Patient à jeun depuis 8h.', description: 'Bilan hépatique complet (ALAT, ASAT, PAL, GGT, Bilirubines)' },
+        { medicalActId: actsMap['LAB-BILAN-LIP'], testType: 'chemistry', turnaroundTimeHours: '3', instructions: 'Patient à jeun depuis 12h. Prélever sur tube sec.', description: 'Profil lipidique (Cholestérol total, HDL, LDL, Triglycérides)' },
+        { medicalActId: actsMap['LAB-SEDIMENT'], testType: 'urinalysis', turnaroundTimeHours: '2', instructions: 'Recueillir les urines du matin (1er jet) dans un pot stérile.', description: 'Examen cytobactériologique des urines (ECBU)' },
+        { medicalActId: actsMap['LAB-VS'], testType: 'hematology', turnaroundTimeHours: '2', instructions: 'Prélever sur tube citrate. 2 mL de sang.', description: 'Vitesse de sédimentation (VS) à H1 et H2' },
+        { medicalActId: actsMap['LAB-VIH'], testType: 'serology', turnaroundTimeHours: '24', instructions: 'Prélever sur tube sec. 5 mL de sang.', description: 'Test sérologique VIH (dépistage)' },
+        { medicalActId: actsMap['LAB-GROUP-RH'], testType: 'immunology', turnaroundTimeHours: '1', instructions: 'Prélever sur tube EDTA. 2 mL de sang.', description: 'Groupage sanguin ABO et Rhésus D' },
+        { medicalActId: actsMap['LAB-TP-TCA'], testType: 'hematology', turnaroundTimeHours: '3', instructions: 'Prélever sur tube citrate. Remplir exactement jusqu\'au trait.', description: 'Bilan de coagulation (Taux de Prothrombine, TCA)' },
+        { medicalActId: actsMap['LAB-IONO'], testType: 'chemistry', turnaroundTimeHours: '2', instructions: 'Prélever sur tube hépariné. 3 mL de sang.', description: 'Ionogramme sanguin (Na+, K+, Cl-, Ca2+)' },
       ])
       .returning()
 
-    const labTestMap = labTestsData.reduce(
-      (acc, t) => {
-        acc[t.code] = t.id
-        return acc
-      },
-      {} as Record<string, string>
-    )
+    const ACT_TO_LAB_KEY: Record<string, string> = {
+      'LAB-CBC': 'NFS',
+      'LAB-GLYC': 'GLYC',
+      'LAB-CRP': 'CRP',
+      'LAB-UREA-CREAT': 'UREA-CREAT',
+      'LAB-BIO': 'BILAN-HEP',
+      'LAB-BILAN-LIP': 'BILAN-LIP',
+      'LAB-SEDIMENT': 'SEDIMENT',
+      'LAB-VS': 'VS',
+      'LAB-VIH': 'VIH-SERO',
+      'LAB-GROUP-RH': 'GROUP-RH',
+      'LAB-TP-TCA': 'TP-TCA',
+      'LAB-IONO': 'IONO',
+    }
+    const labTestMap: Record<string, string> = {}
+    for (const t of labTestsData) {
+      const actCode = Object.entries(actsMap).find(([, id]) => id === t.medicalActId)?.[0] || ''
+      labTestMap[ACT_TO_LAB_KEY[actCode] || actCode] = t.id
+    }
 
     console.log('📋 Seeding lab test parameters...')
     await db.insert(labTestParameters).values([
@@ -689,6 +687,9 @@ async function seed() {
       { labTestId: labTestMap['IONO'], parameterCode: 'CL', parameterName: 'Chlore (Cl-)', unit: 'mmol/L', referenceRangeLow: '98', referenceRangeHigh: '107', sortOrder: '3' },
       { labTestId: labTestMap['IONO'], parameterCode: 'CA', parameterName: 'Calcium (Ca2+)', unit: 'mmol/L', referenceRangeLow: '2.15', referenceRangeHigh: '2.55', sortOrder: '4' },
     ])
+
+    console.log('📒 Seeding chart of accounts (plan comptable)...')
+    await seedAccounting()
 
     console.log('✅ Database seeded successfully!')
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/db"
 import { expenses } from "@/db/schema"
+import { postAutoJournalEntry } from "@/lib/accounting"
 import { z } from "zod"
 import { desc, eq, and, gte, lte } from "drizzle-orm"
 
@@ -46,12 +47,25 @@ export async function POST(req: Request) {
         const body = await req.json()
         const validatedData = expenseSchema.parse(body)
 
-        const [newExpense] = await db.insert(expenses).values({
-            description: validatedData.description,
-            amount: validatedData.amount.toString(),
-            category: validatedData.category,
-            cashSessionId: validatedData.cashSessionId,
-        }).returning()
+        const newExpense = await db.transaction(async (tx) => {
+            const [expense] = await tx.insert(expenses).values({
+                description: validatedData.description,
+                amount: validatedData.amount.toString(),
+                category: validatedData.category,
+                cashSessionId: validatedData.cashSessionId,
+            }).returning()
+
+            await postAutoJournalEntry(tx, {
+                eventType: `expense:${validatedData.category}`,
+                fallbackEventType: "expense",
+                amount: validatedData.amount,
+                label: `Dépense: ${validatedData.description}`,
+                referenceType: "expense",
+                referenceId: expense.id,
+            })
+
+            return expense
+        })
 
         return NextResponse.json({ data: newExpense })
     } catch (error: any) {

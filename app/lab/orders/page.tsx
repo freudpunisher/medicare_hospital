@@ -120,7 +120,12 @@ export default function LabOrdersPage() {
   }
 
   async function handleCreate() {
-    if (!form.labTestId || !form.patientId) return
+    if (!form.labTestId || !form.patientId || !user?.id) {
+      if (!user?.id) toast.error("Session utilisateur non trouvée")
+      else if (!form.labTestId) toast.error("Veuillez sélectionner un test")
+      else if (!form.patientId) toast.error("Veuillez sélectionner un patient")
+      return
+    }
     setSaving(true)
     try {
       const res = await fetch("/api/lab/orders", {
@@ -129,7 +134,7 @@ export default function LabOrdersPage() {
         body: JSON.stringify({
           labTestId: form.labTestId,
           patientId: form.patientId,
-          orderedBy: user?.id,
+          orderedBy: user.id,
           priority: form.priority,
           clinicalNotes: form.clinicalNotes || null,
         }),

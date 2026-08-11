@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/db"
 import { purchaseOrders, purchaseOrderItems, medicineLots, stockMovements } from "@/db/schema"
+import { postAutoJournalEntry } from "@/lib/accounting"
 import { z } from "zod"
 import { desc } from "drizzle-orm"
 
@@ -65,6 +66,14 @@ export async function POST(req: Request) {
                     referenceType: "purchase_order",
                 })
             }
+
+            await postAutoJournalEntry(tx, {
+                eventType: "purchase_reception",
+                amount: totalAmount,
+                label: `Réception d'achat #${newOrder.id.split("-")[0]}`,
+                referenceType: "purchase_order",
+                referenceId: newOrder.id,
+            })
 
             return newOrder
         })

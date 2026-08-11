@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/db"
-import { labTests, labTestParameters } from "@/db/schema"
+import { labTests, medicalActs } from "@/db/schema"
 import { eq } from "drizzle-orm"
 
 export async function GET(
@@ -13,8 +13,9 @@ export async function GET(
     const test = await db.query.labTests.findFirst({
       where: eq(labTests.id, id),
       with: {
+        medicalAct: true,
         parameters: {
-          orderBy: (params: any) => params.sortOrder,
+          orderBy: (p: any) => p.sortOrder,
         },
       },
     })
@@ -37,18 +38,14 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await req.json()
-    const { code, name, description, testType, price, turnaroundTimeHours, instructions, isActive, serviceId } = body
+    const { description, testType, turnaroundTimeHours, instructions, isActive } = body
 
     const updateData: Record<string, any> = {}
-    if (code !== undefined) updateData.code = code
-    if (name !== undefined) updateData.name = name
     if (description !== undefined) updateData.description = description
     if (testType !== undefined) updateData.testType = testType
-    if (price !== undefined) updateData.price = price.toString()
     if (turnaroundTimeHours !== undefined) updateData.turnaroundTimeHours = turnaroundTimeHours.toString()
     if (instructions !== undefined) updateData.instructions = instructions
     if (isActive !== undefined) updateData.isActive = isActive
-    if (serviceId !== undefined) updateData.serviceId = serviceId
     updateData.updatedAt = new Date()
 
     const [updated] = await db.update(labTests)

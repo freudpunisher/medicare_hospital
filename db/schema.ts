@@ -11,6 +11,7 @@ import {
   index,
   decimal,
   serial,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -438,7 +439,6 @@ export const insurancePayments = pgTable(
       .notNull()
       .references(() => insurances.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     batchId: uuid('batch_id')
-      .notNull()
       .references(() => insuranceBatches.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     claimId: uuid('claim_id')
       .references(() => insuranceClaims.id, { onDelete: 'set null', onUpdate: 'cascade' }),
@@ -610,24 +610,94 @@ export const expenses = pgTable(
 )
 
 // ============================================================
-// ACCOUNTING JOURNAL TABLE
+// CHART OF ACCOUNTS (PLAN COMPTABLE) TABLE
 // ============================================================
-export const accountingJournal = pgTable(
-  'accounting_journal',
+export const chartAccounts = pgTable(
+  'chart_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    code: varchar('code', { length: 20 }).notNull().unique(),
+    label: varchar('label', { length: 255 }).notNull(),
+    class: varchar('class', { length: 1 }).notNull(), // 1..7
+    type: varchar('type', { length: 20 }).notNull(), // asset, liability, equity, expense, revenue
+    parentId: uuid('parent_id').references((): AnyPgColumn => chartAccounts.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    codeIdx: index('chart_accounts_code_idx').on(table.code),
+    classIdx: index('chart_accounts_class_idx').on(table.class),
+    parentIdx: index('chart_accounts_parent_idx').on(table.parentId),
+  })
+)
+
+// ============================================================
+// ACCOUNTING MAPPINGS (AUTOMATION RULES) TABLE
+// ============================================================
+export const accountingMappings = pgTable(
+  'accounting_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eventType: varchar('event_type', { length: 100 }).notNull().unique(),
+    label: varchar('label', { length: 255 }).notNull(),
+    debitCode: varchar('debit_code', { length: 20 }).notNull(),
+    creditCode: varchar('credit_code', { length: 20 }).notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    eventTypeIdx: index('accounting_mappings_event_type_idx').on(table.eventType),
+  })
+)
+
+// ============================================================
+// JOURNAL ENTRIES TABLE
+// ============================================================
+export const journalEntries = pgTable(
+  'journal_entries',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     entryNumber: varchar('entry_number', { length: 50 }).notNull().unique(),
-    description: varchar('description', { length: 255 }).notNull(),
-    debitAmount: decimal('debit_amount', { precision: 10, scale: 2 }).notNull().default('0'),
-    creditAmount: decimal('credit_amount', { precision: 10, scale: 2 }).notNull().default('0'),
-    referenceId: uuid('reference_id'), // FK to invoice, payment, expense, etc.
-    referenceType: varchar('reference_type', { length: 50 }), // invoice, payment, expense
-    notes: text('notes'),
+    entryDate: timestamp('entry_date').notNull().defaultNow(),
+    label: varchar('label', { length: 255 }).notNull(),
+    referenceType: varchar('reference_type', { length: 50 }), // pharmacy_sale, invoice, expense, ...
+    referenceId: uuid('reference_id'),
+    status: varchar('status', { length: 20 }).notNull().default('posted'), // draft, posted
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null', onUpdate: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    entryNumberIdx: index('journal_entries_entry_number_idx').on(table.entryNumber),
+    entryDateIdx: index('journal_entries_entry_date_idx').on(table.entryDate),
+    referenceIdx: index('journal_entries_reference_idx').on(table.referenceType, table.referenceId),
+    statusIdx: index('journal_entries_status_idx').on(table.status),
+  })
+)
+
+// ============================================================
+// JOURNAL ENTRY LINES TABLE
+// ============================================================
+export const journalEntryLines = pgTable(
+  'journal_entry_lines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entryId: uuid('entry_id')
+      .notNull()
+      .references(() => journalEntries.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => chartAccounts.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
+    libelle: varchar('libelle', { length: 255 }),
+    debit: decimal('debit', { precision: 10, scale: 2 }).notNull().default('0'),
+    credit: decimal('credit', { precision: 10, scale: 2 }).notNull().default('0'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (table) => ({
-    entryNumberIdx: index('accounting_journal_entry_number_idx').on(table.entryNumber),
-    referenceIdIdx: index('accounting_journal_reference_id_idx').on(table.referenceId),
+    entryIdx: index('journal_entry_lines_entry_idx').on(table.entryId),
+    accountIdx: index('journal_entry_lines_account_idx').on(table.accountId),
   })
 )
 
@@ -1089,14 +1159,12 @@ export const labTests = pgTable(
   'lab_tests',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    serviceId: uuid('service_id')
+    medicalActId: uuid('medical_act_id')
       .notNull()
-      .references(() => services.id, { onDelete: 'cascade' }),
-    code: varchar('code', { length: 50 }).notNull().unique(),
-    name: varchar('name', { length: 255 }).notNull(),
+      .unique()
+      .references(() => medicalActs.id, { onDelete: 'cascade' }),
     description: text('description'),
     testType: labTestTypeEnum('test_type').notNull(),
-    price: numeric('price', { precision: 12, scale: 2 }).notNull().default('0'),
     turnaroundTimeHours: numeric('turnaround_time_hours', { precision: 5, scale: 1 }).notNull().default('24'),
     instructions: text('instructions'),
     isActive: boolean('is_active').notNull().default(true),
@@ -1104,8 +1172,7 @@ export const labTests = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    codeIdx: index('lab_tests_code_idx').on(table.code),
-    serviceIdIdx: index('lab_tests_service_id_idx').on(table.serviceId),
+    medicalActIdIdx: index('lab_tests_medical_act_id_idx').on(table.medicalActId),
     isActiveIdx: index('lab_tests_is_active_idx').on(table.isActive),
   })
 )
@@ -1365,7 +1432,6 @@ export const hospitalizations = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
 
     visitId: uuid('visit_id')
-      .notNull()
       .references(() => visits.id, { onDelete: 'cascade' }),
 
     patientId: uuid('patient_id')
@@ -1634,7 +1700,6 @@ export const partnershipVisitLogs = pgTable(
       .notNull()
       .references(() => corporateEmployees.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     visitId: uuid('visit_id')
-      .notNull()
       .references(() => visits.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
     invoiceId: uuid('invoice_id')
       .references(() => invoices.id, { onDelete: 'set null', onUpdate: 'cascade' }),
@@ -1857,7 +1922,33 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   }),
 }))
 
-export const accountingJournalRelations = relations(accountingJournal, ({ }) => ({}))
+export const accountingJournalRelations = relations(journalEntryLines, ({ one }) => ({
+  entry: one(journalEntries, {
+    fields: [journalEntryLines.entryId],
+    references: [journalEntries.id],
+  }),
+  account: one(chartAccounts, {
+    fields: [journalEntryLines.accountId],
+    references: [chartAccounts.id],
+  }),
+}))
+
+export const journalEntriesRelations = relations(journalEntries, ({ many, one }) => ({
+  lines: many(journalEntryLines),
+  creator: one(users, {
+    fields: [journalEntries.createdBy],
+    references: [users.id],
+  }),
+}))
+
+export const chartAccountsRelations = relations(chartAccounts, ({ many, one }) => ({
+  parent: one(chartAccounts, {
+    relationName: "parent",
+    fields: [chartAccounts.parentId],
+    references: [chartAccounts.id],
+  }),
+  children: many(chartAccounts, { relationName: "parent" }),
+}))
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
@@ -2141,9 +2232,9 @@ export const examResultsRelations = relations(examResults, ({ one }) => ({
 // ============================================================
 
 export const labTestsRelations = relations(labTests, ({ one, many }) => ({
-  service: one(services, {
-    fields: [labTests.serviceId],
-    references: [services.id],
+  medicalAct: one(medicalActs, {
+    fields: [labTests.medicalActId],
+    references: [medicalActs.id],
   }),
   parameters: many(labTestParameters),
   orders: many(labOrders),

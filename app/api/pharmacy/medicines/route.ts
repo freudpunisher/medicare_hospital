@@ -10,7 +10,7 @@ const medicineSchema = z.object({
     categoryId: z.string().uuid().optional().nullable(),
     unit: z.string().min(1),
     barcode: z.string().optional().nullable(),
-    sellingPrice: z.string().optional().nullable(),
+    sellingPrice: z.string().optional().nullable().transform(v => v ?? '0'),
     isActive: z.boolean().default(true),
 })
 

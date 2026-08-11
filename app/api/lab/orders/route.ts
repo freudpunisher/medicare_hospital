@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/db"
-import { labOrders, labTests, patients, users } from "@/db/schema"
+import { labOrders, labTests, medicalActs, patients, users } from "@/db/schema"
 import { eq, desc, and, ilike, sql } from "drizzle-orm"
 
 export async function GET(req: Request) {
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const labTestId = searchParams.get("testId")
 
     const conditions = []
-    if (status && status !== "all") conditions.push(eq(labOrders.status, status))
+    if (status && status !== "all") conditions.push(eq(labOrders.status, status as any))
     if (labTestId) conditions.push(eq(labOrders.labTestId, labTestId))
     if (patientSearch) {
       const like = `%${patientSearch}%`
@@ -28,12 +28,13 @@ export async function GET(req: Request) {
       notes: labOrders.notes,
       clinicalNotes: labOrders.clinicalNotes,
       patient: { id: patients.id, firstName: patients.firstName, lastName: patients.lastName },
-      labTest: { id: labTests.id, code: labTests.code, name: labTests.name, testType: labTests.testType },
+      labTest: { id: labTests.id, code: medicalActs.code, name: medicalActs.name, testType: labTests.testType },
       orderedBy: { id: users.id, fullName: users.fullName },
     })
       .from(labOrders)
       .innerJoin(patients, eq(labOrders.patientId, patients.id))
       .innerJoin(labTests, eq(labOrders.labTestId, labTests.id))
+      .innerJoin(medicalActs, sql`${labTests.medicalActId} = ${medicalActs.id}`)
       .leftJoin(users, eq(labOrders.orderedBy, users.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(labOrders.createdAt))

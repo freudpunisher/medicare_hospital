@@ -63,7 +63,6 @@ interface LabTest {
   isActive: boolean
   description: string | null
   instructions: string | null
-  serviceId: string
   serviceName: string | null
   parameterCount: number
   createdAt: string
@@ -98,13 +97,13 @@ export default function LabTestsPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [editingParam, setEditingParam] = useState<Parameter | null>(null)
   const [saving, setSaving] = useState(false)
+  const [labActs, setLabActs] = useState<any[]>([])
+  const [existingActIds, setExistingActIds] = useState<Set<string>>(new Set())
 
   const [form, setForm] = useState({
-    code: "",
-    name: "",
+    medicalActId: "",
     description: "",
     testType: "hematology",
-    price: "",
     turnaroundTimeHours: "24",
     instructions: "",
   })
@@ -127,6 +126,20 @@ export default function LabTestsPage() {
 
   useEffect(() => { fetchTests() }, [search, typeFilter])
 
+  // Fetch lab medical acts not already linked to a test
+  useEffect(() => {
+    if (!createOpen) return
+    Promise.all([
+      fetch("/api/acts/list").then(r => r.json()),
+      fetch("/api/lab/tests?active=true").then(r => r.json()),
+    ]).then(([actsData, testsData]) => {
+      const acts = (actsData.data || []).filter((a: any) => a.serviceName === "Laboratory")
+      const used = new Set<string>((testsData.data || []).map((t: any) => t.medicalActId))
+      setExistingActIds(used)
+      setLabActs(acts)
+    }).catch(() => {})
+  }, [createOpen])
+
   async function fetchTests() {
     setLoading(true)
     try {
@@ -141,7 +154,7 @@ export default function LabTestsPage() {
   }
 
   async function handleCreate() {
-    if (!form.code || !form.name || !form.price) return
+    if (!form.medicalActId || !form.instructions) return
     setSaving(true)
     try {
       const res = await fetch("/api/lab/tests", {
@@ -152,7 +165,7 @@ export default function LabTestsPage() {
       if (res.ok) {
         toast.success("Test créé")
         setCreateOpen(false)
-        setForm({ code: "", name: "", description: "", testType: "hematology", price: "", turnaroundTimeHours: "24", instructions: "" })
+        setForm({ medicalActId: "", description: "", testType: "hematology", turnaroundTimeHours: "24", instructions: "" })
         fetchTests()
       } else {
         const err = await res.json()
@@ -237,13 +250,42 @@ export default function LabTestsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="p-8 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Acte Médical (Laboratoire) *</Label>
+                <Select value={form.medicalActId} onValueChange={v => setForm(f => ({ ...f, medicalActId: v }))}>
+                  <SelectTrigger className="h-11 rounded-2xl font-bold"><SelectValue placeholder="Choisir un acte..." /></SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    {labActs.filter(a => !existingActIds.has(a.id)).map(a => (
+                      <SelectItem key={a.id} value={a.id} className="font-bold">{a.name} ({a.code}) — {Number(a.basePrice).toLocaleString()} FBU</SelectItem>
+                    ))}
+                    {labActs.filter(a => existingActIds.has(a.id)).length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-t mt-1">Déjà liés</div>
+                        {labActs.filter(a => existingActIds.has(a.id)).map(a => (
+                          <SelectItem key={a.id} value={a.id} className="font-bold text-muted-foreground" disabled>{a.name} ({a.code})</SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                {form.medicalActId && (
+                  <div className="bg-muted/30 rounded-xl p-3 text-xs space-y-1">
+                    {(() => {
+                      const act = labActs.find(a => a.id === form.medicalActId)
+                      return act ? (
+                        <>
+                          <div className="flex justify-between"><span className="font-bold text-muted-foreground">Code</span><span className="font-black">{act.code}</span></div>
+                          <div className="flex justify-between"><span className="font-bold text-muted-foreground">Nom</span><span className="font-black">{act.name}</span></div>
+                          <div className="flex justify-between"><span className="font-bold text-muted-foreground">Prix</span><span className="font-black">{Number(act.basePrice).toLocaleString()} FBU</span></div>
+                        </>
+                      ) : null
+                    })()}
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Code *</Label>
-                  <Input placeholder="Ex: NFS" className="h-11 rounded-2xl font-bold uppercase" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Type *</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Type d'Analyse *</Label>
                   <Select value={form.testType} onValueChange={v => setForm(f => ({ ...f, testType: v }))}>
                     <SelectTrigger className="h-11 rounded-2xl font-bold"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-2xl">{TEST_TYPES.map(t => (
@@ -251,28 +293,18 @@ export default function LabTestsPage() {
                     ))}</SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nom *</Label>
-                <Input placeholder="Ex: Numération Formule Sanguine" className="h-11 rounded-2xl font-bold" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Description</Label>
-                <Textarea placeholder="Description du test..." className="rounded-2xl font-bold text-xs" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prix (FBU) *</Label>
-                  <Input type="number" placeholder="0" className="h-11 rounded-2xl font-bold" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Délai (heures)</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Délai (heures) *</Label>
                   <Input type="number" placeholder="24" className="h-11 rounded-2xl font-bold" value={form.turnaroundTimeHours} onChange={e => setForm(f => ({ ...f, turnaroundTimeHours: e.target.value }))} />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Instructions</Label>
-                <Textarea placeholder="Instructions de prélèvement..." className="rounded-2xl font-bold text-xs" value={form.instructions} onChange={e => setForm(f => ({ ...f, instructions: e.target.value }))} />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Instructions *</Label>
+                <Textarea placeholder="Instructions de prélèvement, conditions, délais..." className="rounded-2xl font-bold text-xs" value={form.instructions} onChange={e => setForm(f => ({ ...f, instructions: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Description (optionnelle)</Label>
+                <Textarea placeholder="Description du test..." className="rounded-2xl font-bold text-xs" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
             </div>
             <DialogFooter className="p-6 bg-muted/30 border-t border-muted/50 gap-3">
@@ -379,14 +411,14 @@ export default function LabTestsPage() {
               <DialogHeader className="p-8 bg-primary text-primary-foreground sticky top-0 z-10">
                 <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
                   <FlaskConical className="size-6" />
-                  {detailTest.name}
+                  {detailTest.medicalAct?.name || "Test"}
                 </DialogTitle>
                 <DialogDescription className="text-primary-foreground/70 font-bold text-[10px] uppercase tracking-widest mt-1 flex items-center gap-3">
-                  <span>Code: {detailTest.code}</span>
+                  <span>Code: {detailTest.medicalAct?.code || "—"}</span>
                   <span>•</span>
                   <span>{typeLabel(detailTest.testType)}</span>
                   <span>•</span>
-                  <span>{Number(detailTest.price).toLocaleString()} FBU</span>
+                  <span>{Number(detailTest.medicalAct?.basePrice || 0).toLocaleString()} FBU</span>
                 </DialogDescription>
               </DialogHeader>
 
