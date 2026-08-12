@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Trash2, ShoppingCart, User, Package, Calendar, CheckCircle2, ChevronRight } from "lucide-react"
+import { Search, Plus, Trash2, ShoppingCart, User, Package, Calendar, CheckCircle2, ChevronRight, Landmark, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 interface Lot {
     id: string
@@ -45,11 +46,21 @@ interface CartItem {
 
 export default function NewSalePage() {
     const router = useRouter()
+    const { user } = useCurrentUser()
     const [medicines, setMedicines] = useState<Medicine[]>([])
     const [search, setSearch] = useState("")
     const [cart, setCart] = useState<CartItem[]>([])
     const [customerName, setCustomerName] = useState("")
     const [loading, setLoading] = useState(false)
+    const [openSessions, setOpenSessions] = useState<any[]>([])
+
+    useEffect(() => {
+        if (!user?.id) return
+        fetch(`/api/finance/cash-sessions?status=open&openedBy=${user.id}`)
+            .then(r => r.json())
+            .then(data => setOpenSessions(data.data || []))
+            .catch(() => {})
+    }, [user?.id])
 
     useEffect(() => {
         async function fetchMedicines() {
@@ -264,6 +275,15 @@ export default function NewSalePage() {
                                                 />
                                             </div>
                                         </div>
+                                        {openSessions.length > 0 ? (
+                                            <div className="flex items-center gap-3 text-emerald-400 text-xs font-black tracking-widest uppercase bg-emerald-500/10 w-fit px-4 py-2 rounded-lg border border-emerald-500/20">
+                                                <Landmark className="size-4" /> Caisse Active : {openSessions[0]?.cashRegister?.name || 'Caisse'}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-3 text-amber-400 text-xs font-black tracking-widest uppercase bg-amber-500/10 w-fit px-4 py-2 rounded-lg border border-amber-500/20">
+                                                <AlertCircle className="size-4" /> Aucune Session Ouverte
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-3 text-emerald-400 text-xs font-black tracking-widest uppercase bg-emerald-500/10 w-fit px-4 py-2 rounded-lg border border-emerald-500/20">
                                             <CheckCircle2 className="size-4" /> Paiement Comptant / Cash
                                         </div>
@@ -280,7 +300,7 @@ export default function NewSalePage() {
                                             size="lg"
                                             className="w-full sm:w-64 h-20 text-lg font-black uppercase tracking-[0.2em] shadow-2xl shadow-primary/40 hover:scale-[1.05] transition-all duration-300 active:scale-[0.95] rounded-2xl flex items-center justify-center gap-3 bg-primary text-primary-foreground"
                                             onClick={confirmSale}
-                                            disabled={loading || cart.length === 0}
+                                            disabled={loading || cart.length === 0 || openSessions.length === 0}
                                         >
                                             {loading ? <div className="size-6 animate-spin border-4 border-white/20 border-t-white rounded-full" /> : "Encaisser & Imprimer"}
                                         </Button>

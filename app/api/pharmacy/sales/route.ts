@@ -3,6 +3,8 @@ import { db } from "@/db"
 import { pharmacySales, pharmacySaleItems, stockMovements, medicines } from "@/db/schema"
 import { consumeStockFEFO } from "@/lib/pharmacy/stock"
 import { postAutoJournalEntry } from "@/lib/accounting"
+import { getCurrentUserId } from "@/lib/current-user"
+import { getOpenSessionForUser, NO_OPEN_SESSION_ERROR } from "@/lib/cash-sessions"
 import { z } from "zod"
 import { desc, eq } from "drizzle-orm"
 
@@ -19,6 +21,15 @@ export async function POST(req: Request) {
     try {
         const body = await req.json()
         const { customerName, items, notes } = saleBodySchema.parse(body)
+
+        const userId = await getCurrentUserId()
+        if (!userId) {
+            return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+        }
+        const openSession = await getOpenSessionForUser(userId)
+        if (!openSession) {
+            return NextResponse.json({ error: NO_OPEN_SESSION_ERROR }, { status: 400 })
+        }
 
         const result = await db.transaction(async (tx) => {
             let subtotal = 0
@@ -67,6 +78,7 @@ export async function POST(req: Request) {
                 status: "confirmed",
                 paymentMethod: "cash",
                 paymentStatus: "paid",
+                cashSessionId: openSession.id,
             }).returning()
 
             // Create Sale Items and Link Movements

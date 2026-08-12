@@ -38,7 +38,7 @@ interface PaginationInfo {
   totalPages: number
 }
 
-const ROLES = ['admin', 'user', 'doctor', 'cashier']
+const ROLES = ['admin', 'user', 'doctor', 'cashier', 'pharmacist', 'receptionist']
 
 export default function UsersTab() {
   const [users, setUsers] = useState<User[]>([])

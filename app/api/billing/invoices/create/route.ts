@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { invoices, invoiceItems, payments, partnershipVisitLogs, partnershipDiscountHistory } from '@/db/schema'
 import { postAutoJournalEntry } from '@/lib/accounting'
+import { getCurrentUserId } from '@/lib/current-user'
+import { getOpenSessionForUser, NO_OPEN_SESSION_ERROR } from '@/lib/cash-sessions'
 
 export async function POST(req: Request) {
     try {
@@ -19,11 +21,22 @@ export async function POST(req: Request) {
             items,
             paymentMethod,
             paymentReference,
-            cashSessionId,
         } = body
 
         if (!patientId || !items || items.length === 0) {
             return NextResponse.json({ error: 'Patient ID and items are required' }, { status: 400 })
+        }
+
+        let openSession = null
+        if (paymentMethod && paymentMethod !== 'loan') {
+            const userId = await getCurrentUserId()
+            if (!userId) {
+                return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+            }
+            openSession = await getOpenSessionForUser(userId)
+            if (!openSession) {
+                return NextResponse.json({ error: NO_OPEN_SESSION_ERROR }, { status: 400 })
+            }
         }
 
         // Generate unique invoice number
@@ -67,7 +80,7 @@ export async function POST(req: Request) {
                     amount: patientAmount.toString(),
                     paymentMethod,
                     referenceNumber: paymentReference || null,
-                    cashSessionId: cashSessionId || null,
+                    cashSessionId: openSession?.id || null,
                     notes: `Automatic payment on invoice creation${discountAmount > 0 ? ` (Reduction: ${discountAmount} FBU)` : ''}${partnershipDiscountAmount > 0 ? ` (Corporate: ${partnershipDiscountAmount} FBU)` : ''}`,
                 })
 

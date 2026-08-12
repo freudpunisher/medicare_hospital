@@ -12,7 +12,8 @@ interface FinanceData {
             expenses: number
         }
     }
-    period: string
+    from: string | null
+    to: string | null
 }
 
 interface FinanceReportProps {
@@ -20,16 +21,22 @@ interface FinanceReportProps {
     ref: React.RefObject<HTMLDivElement>
 }
 
+const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("fr-FR") : null
+
 export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceData | null }>(
     ({ data }, ref) => {
         if (!data) return null
 
-        const periodLabels: Record<string, string> = {
-            today: "Aujourd'hui",
-            month: "Ce Mois",
-            year: "Cette Année",
-            all: "Tout Historique"
-        }
+        const fromLabel = fmtDate(data.from)
+        const toLabel = fmtDate(data.to)
+        const periodLabel = fromLabel && toLabel
+            ? `Du ${fromLabel} au ${toLabel}`
+            : fromLabel
+                ? `À partir du ${fromLabel}`
+                : toLabel
+                    ? `Jusqu'au ${toLabel}`
+                    : "Tout l'historique"
 
         return (
             <div ref={ref} className="bg-white text-slate-800 p-[15mm] font-serif w-[210mm] min-h-[297mm] mx-auto shadow-none">
@@ -41,7 +48,7 @@ export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceD
                     </div>
                     <div className="text-right space-y-1">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Période d'Audit</p>
-                        <p className="text-base font-black uppercase text-slate-900 leading-none">{periodLabels[data.period] || data.period}</p>
+                        <p className="text-base font-black uppercase text-slate-900 leading-none">{periodLabel}</p>
                         <p className="text-[9px] font-bold text-slate-400 italic">Généré le {new Date().toLocaleString('fr-FR')}</p>
                     </div>
                 </div>

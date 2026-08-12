@@ -34,7 +34,7 @@ interface Account {
   isActive: boolean
 }
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 0 })} FBU`
+const fmt = (n?: number) => `${(n ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 0 })} FBU`
 
 function FilterBar({
   onApply,
@@ -73,6 +73,7 @@ export default function AccountingReportsPage() {
 
   async function fetchData(from = range.from, to = range.to) {
     setLoading(true)
+    setData(null)
     try {
       const params = new URLSearchParams({ type: tab })
       if (from) params.set("from", from)
@@ -86,6 +87,7 @@ export default function AccountingReportsPage() {
       const reportJson = await reportRes.json()
       const accountsJson = await accountsRes.json()
       if (reportRes.ok) setData(reportJson.data)
+      else setData(null)
       if (accountsRes.ok) setAccounts(accountsJson.data.filter((a: Account) => a.isActive))
     } catch (err) {
       toast.error("Erreur de chargement")

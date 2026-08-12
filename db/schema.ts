@@ -1501,9 +1501,13 @@ export const pharmacySales = pgTable(
     customerName: varchar("customer_name", { length: 255 }), // nullable = anonymous
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
     totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+    cashSessionId: uuid("cash_session_id").references(() => cashSessions.id, { onDelete: "set null", onUpdate: "cascade" }),
     notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow(),
-  }
+  },
+  (table) => ({
+    cashSessionIdx: index("pharmacy_sales_cash_session_idx").on(table.cashSessionId),
+  })
 )
 
 export const pharmacySaleItems = pgTable(

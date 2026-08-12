@@ -4,17 +4,18 @@
  * Define which roles can see each navigation group.
  *
  * roles:
- *   - "admin"       → Full access: IT, managers
- *   - "doctor"      → Clinical + patient-facing areas
- *   - "cashier"     → Billing, pharmacy sales, payments
- *   - "pharmacist"  → Pharmacy only
- *   - "user"        → Default / read-only baseline
+ *   - "admin"        → Full access: IT, managers
+ *   - "doctor"       → Clinical + patient-facing areas
+ *   - "cashier"      → Billing, pharmacy sales, payments
+ *   - "pharmacist"   → Pharmacy only
+ *   - "receptionist" → Registration, consultations, lab orders, admissions
+ *   - "user"         → Default / read-only baseline
  *
  * To grant access to ALL roles, use "*".
  * To restrict a group, list specific role names.
  */
 
-export type UserRole = "admin" | "doctor" | "cashier" | "pharmacist" | "user"
+export type UserRole = "admin" | "doctor" | "cashier" | "pharmacist" | "receptionist" | "user"
 
 export interface NavPermission {
     group: string
@@ -24,15 +25,15 @@ export interface NavPermission {
 
 export const NAV_PERMISSIONS: NavPermission[] = [
     { group: "Overview", roles: "*" },
-    { group: "Clinical", roles: ["admin", "doctor", "user"] },
-    { group: "Laboratory", roles: ["admin", "doctor", "user"] },
+    { group: "Clinical", roles: ["admin", "doctor", "receptionist", "user"] },
+    { group: "Laboratory", roles: ["admin", "doctor", "receptionist", "user"] },
     { group: "Insurance", roles: ["admin", "cashier", "user"] },
     { group: "Billing", roles: ["admin", "cashier", "user"] },
     { group: "Pharmacy", roles: ["admin", "pharmacist", "cashier", "user"] },
     { group: "Finance", roles: ["admin", "cashier", "user"] },
     { group: "Comptabilité", roles: ["admin", "cashier", "user"] },
     { group: "System", roles: ["admin", "user"] },
-    { group: "Hospital", roles: ["admin", "doctor", "user"] },
+    { group: "Hospital", roles: ["admin", "doctor", "receptionist", "user"] },
     { group: "Corporate", roles: ["admin", "user"] },
 ]
 

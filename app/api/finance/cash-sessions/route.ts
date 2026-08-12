@@ -3,7 +3,7 @@ import { db } from "@/db"
 import { cashSessions, pharmacySales, payments, cashRegister, expenses } from "@/db/schema"
 import { postAutoJournalEntry } from "@/lib/accounting"
 import { z } from "zod"
-import { desc, eq, and, gte, lte, sql } from "drizzle-orm"
+import { desc, eq, and, sql } from "drizzle-orm"
 
 const openSessionSchema = z.object({
     cashRegisterId: z.string().uuid(),
@@ -81,16 +81,14 @@ export async function POST(req: Request) {
             }
 
             const result = await db.transaction(async (tx) => {
-                const openedAt = session.openedAt
                 const now = new Date()
 
-                // Sum Pharmacy Sales (Cash) since openedAt
+                // Sum Pharmacy Sales attached to this session
                 const [pharmacyRevenueResult] = await tx.select({
                     total: sql<string>`sum(${pharmacySales.totalAmount})`
-                }).from(pharmacySales).where(and(
-                    eq(pharmacySales.paymentMethod, 'cash'),
-                    gte(pharmacySales.createdAt, openedAt)
-                ))
+                }).from(pharmacySales).where(
+                    eq(pharmacySales.cashSessionId, validated.id)
+                )
 
                 const [actsRevenueResult] = await tx.select({
                     total: sql<string>`sum(${payments.amount})`

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { invoices, invoiceItems, medicalActs, payments } from '@/db/schema'
 import { postAutoJournalEntry } from '@/lib/accounting'
+import { getCurrentUserId } from '@/lib/current-user'
+import { getOpenSessionForUser, NO_OPEN_SESSION_ERROR } from '@/lib/cash-sessions'
 import { eq } from 'drizzle-orm'
 
 export async function GET(
@@ -102,10 +104,22 @@ export async function PUT(
     try {
         const { id: invoiceId } = await params
         const body = await req.json()
-        const { paymentMethod, paymentReference, amount, cashSessionId } = body
+        const { paymentMethod, paymentReference, amount } = body
 
         if (!paymentMethod) {
             return NextResponse.json({ success: false, error: 'Payment method is required' }, { status: 400 })
+        }
+
+        let openSession = null
+        if (paymentMethod !== 'loan') {
+            const userId = await getCurrentUserId()
+            if (!userId) {
+                return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+            }
+            openSession = await getOpenSessionForUser(userId)
+            if (!openSession) {
+                return NextResponse.json({ success: false, error: NO_OPEN_SESSION_ERROR }, { status: 400 })
+            }
         }
 
         const invoice = await db.query.invoices.findFirst({
@@ -128,7 +142,7 @@ export async function PUT(
                 amount: paymentAmount.toString(),
                 paymentMethod,
                 referenceNumber: paymentReference || null,
-                cashSessionId: cashSessionId || null,
+                cashSessionId: openSession?.id || null,
                 notes: 'Payment recorded from invoice details',
             })
 

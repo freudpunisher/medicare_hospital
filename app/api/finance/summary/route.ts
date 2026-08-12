@@ -6,29 +6,48 @@ import {
     invoices,
     expenses
 } from "@/db/schema"
-import { gte, and, sql } from "drizzle-orm"
+import { gte, lte, and, sql } from "drizzle-orm"
 
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
-        const period = searchParams.get("period") || "month" // today, month, year, all
+        const fromParam = searchParams.get("from")
+        const toParam = searchParams.get("to")
 
-        const now = new Date("2026-06-14T15:00:07+02:00") // Using current system time
-        let startDate: Date | null = null
+        const now = new Date()
+        let fromDate: Date | null = null
+        let toDate: Date | null = null
 
-        if (period === "today") {
-            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        } else if (period === "month") {
-            startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        } else if (period === "year") {
-            startDate = new Date(now.getFullYear(), 0, 1)
+        if (fromParam) fromDate = new Date(fromParam)
+        if (toParam) {
+            toDate = new Date(toParam)
+            toDate.setHours(23, 59, 59, 999)
+        }
+        // Default to current month when no range given
+        if (!fromDate && !toDate) {
+            fromDate = new Date(now.getFullYear(), now.getMonth(), 1)
         }
 
-        const whereClause = (table: any) => startDate ? gte(table.createdAt, startDate) : undefined
+        const whereClause = (table: any) => {
+            const conds: any[] = []
+            if (fromDate) conds.push(gte(table.createdAt, fromDate))
+            if (toDate) conds.push(lte(table.createdAt, toDate))
+            return conds.length ? and(...conds) : undefined
+        }
         // Purchase orders use orderDate
-        const whereClausePO = (table: any) => startDate ? gte(table.orderDate, startDate) : undefined
+        const whereClausePO = (table: any) => {
+            const conds: any[] = []
+            if (fromDate) conds.push(gte(table.orderDate, fromDate))
+            if (toDate) conds.push(lte(table.orderDate, toDate))
+            return conds.length ? and(...conds) : undefined
+        }
         // Pharmacy sales use saleDate
-        const whereClausePS = (table: any) => startDate ? gte(table.saleDate, startDate) : undefined
+        const whereClausePS = (table: any) => {
+            const conds: any[] = []
+            if (fromDate) conds.push(gte(table.saleDate, fromDate))
+            if (toDate) conds.push(lte(table.saleDate, toDate))
+            return conds.length ? and(...conds) : undefined
+        }
 
         // 1. Pharmacy Sales Revenue
         const [pharmacyRevenueResult] = await db.select({
@@ -72,7 +91,8 @@ export async function GET(req: Request) {
                         expenses: totalExpenses
                     }
                 },
-                period
+                from: fromParam || null,
+                to: toParam || null,
             }
         })
     } catch (error: any) {
