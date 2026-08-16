@@ -133,7 +133,7 @@ export const InvoiceA4 = React.forwardRef<HTMLDivElement, InvoiceA4Props>(({ inv
             {/* Bottom Legal */}
             <div className="absolute bottom-12 left-12 right-12 text-[8px] text-slate-400 font-sans border-t pt-2 flex justify-between uppercase tracking-[0.2em] font-black italic">
                 <span>Medicare Hospital Information System 2026</span>
-                <span>Logiciel certifié compliant</span>
+                <span>Aucun remboursement</span>
             </div>
         </div>
     )

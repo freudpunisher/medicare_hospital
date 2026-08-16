@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { NAV_PERMISSIONS, type UserRole } from "@/config/nav-permissions"
 import { NAV_GROUPS_CONFIG } from "@/config/nav-permissions"
 
-const ROLES: UserRole[] = ["admin", "doctor", "cashier", "pharmacist", "receptionist", "user"]
+const ROLES: UserRole[] = ["admin", "manager", "doctor", "cashier", "pharmacist", "receptionist", "user"]
 
 export default function PermissionsTab() {
   return (

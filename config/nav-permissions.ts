@@ -4,18 +4,18 @@
  * Define which roles can see each navigation group.
  *
  * roles:
- *   - "admin"        → Full access: IT, managers
- *   - "doctor"       → Clinical + patient-facing areas
- *   - "cashier"      → Billing, pharmacy sales, payments
+ *   - "admin"        → Full access to every group
+ *   - "doctor"       → Clinical: consultations, laboratory, hospital
+ *   - "receptionist" → Registration: dashboard, patients, insurance, billing
+ *   - "cashier"      → Dashboard, patients, insurance, billing
  *   - "pharmacist"   → Pharmacy only
- *   - "receptionist" → Registration, consultations, lab orders, admissions
- *   - "user"         → Default / read-only baseline
+ *   - "user"         → Default / read-only baseline (dashboard, patients)
  *
  * To grant access to ALL roles, use "*".
  * To restrict a group, list specific role names.
  */
 
-export type UserRole = "admin" | "doctor" | "cashier" | "pharmacist" | "receptionist" | "user"
+export type UserRole = "admin" | "manager" | "doctor" | "cashier" | "pharmacist" | "receptionist" | "user"
 
 export interface NavPermission {
     group: string
@@ -25,16 +25,16 @@ export interface NavPermission {
 
 export const NAV_PERMISSIONS: NavPermission[] = [
     { group: "Overview", roles: "*" },
-    { group: "Clinical", roles: ["admin", "doctor", "receptionist", "user"] },
-    { group: "Laboratory", roles: ["admin", "doctor", "receptionist", "user"] },
-    { group: "Insurance", roles: ["admin", "cashier", "user"] },
-    { group: "Billing", roles: ["admin", "cashier", "user"] },
-    { group: "Pharmacy", roles: ["admin", "pharmacist", "cashier", "user"] },
-    { group: "Finance", roles: ["admin", "cashier", "user"] },
-    { group: "Comptabilité", roles: ["admin", "cashier", "user"] },
+    { group: "Clinical", roles: ["admin", "doctor",] },
+    { group: "Laboratory", roles: ["admin", "doctor"] },
+    { group: "Insurance", roles: ["admin", "receptionist", "cashier"] },
+    { group: "Billing", roles: ["admin", "receptionist", "cashier"] },
+    { group: "Pharmacy", roles: ["admin", "pharmacist"] },
+    { group: "Finance", roles: ["admin"] },
+    { group: "Comptabilité", roles: ["admin"] },
     { group: "System", roles: ["admin", "user"] },
-    { group: "Hospital", roles: ["admin", "doctor", "receptionist", "user"] },
-    { group: "Corporate", roles: ["admin", "user"] },
+    { group: "Hospital", roles: ["admin", "doctor"] },
+    { group: "Corporate", roles: ["admin"] },
 ]
 
 export interface NavItem {

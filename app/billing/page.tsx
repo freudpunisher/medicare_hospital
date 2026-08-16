@@ -817,6 +817,7 @@ export default function BillingPage() {
               <hr />
 
               <p className="text-center italic font-black" style={{ fontSize: '11px', margin: '6px 0' }}>*** Merci de votre confiance ***</p>
+              <p className="text-center font-bold" style={{ fontSize: '9px' }}>*** Aucun remboursement ***</p>
               <p className="text-center font-bold" style={{ fontSize: '9px', opacity: 0.8 }}>{lastInvoice.id}</p>
             </div>
           )}

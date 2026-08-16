@@ -8,13 +8,22 @@ import {
     Printer,
     CalendarRange,
     Loader2,
-    CheckCircle2
+    CheckCircle2,
+    Activity,
+    Pill,
+    ReceiptText,
+    Trophy,
+    Package,
+    Repeat,
+    FileCheck2,
+    Boxes,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FinanceReportA4 } from "@/components/finance/finance-report-a4"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -31,13 +40,317 @@ interface FinanceSummary {
     }
 }
 
+interface ActItem {
+    id: string
+    name: string
+    code: string
+    usageCount: number
+    invoiceCount: number
+    revenue: number
+}
+
+interface ActBreakdown {
+    total: number
+    usageCount: number
+    invoiceCount: number
+    top: { name: string; usageCount: number; revenue: number } | null
+    items: ActItem[]
+}
+
+interface PharmacyItem {
+    id: string
+    name: string
+    quantity: number
+    revenue: number
+}
+
+interface PharmacyBreakdown {
+    total: number
+    unitsSold: number
+    transactionCount: number
+    top: { name: string; quantity: number; revenue: number } | null
+    items: PharmacyItem[]
+}
+
 interface FinanceData {
     summary: FinanceSummary
+    acts: ActBreakdown
+    pharmacy: PharmacyBreakdown
     from: string | null
     to: string | null
 }
 
 const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FBU`
+
+function StatCard({
+    icon: Icon,
+    label,
+    value,
+    sub,
+    className,
+    badge,
+}: {
+    icon: any
+    label: string
+    value: React.ReactNode
+    sub?: React.ReactNode
+    className?: string
+    badge?: string
+}) {
+    return (
+        <Card className={cn("rounded-[2rem] border-none shadow-sm overflow-hidden relative", className)}>
+            <div className="absolute -top-10 -right-10 size-40 bg-white/10 rounded-full blur-3xl" />
+            <CardContent className="p-6 space-y-3">
+                <div className="flex justify-between items-start">
+                    <div className="size-11 rounded-2xl bg-white/15 flex items-center justify-center">
+                        <Icon className="size-5" />
+                    </div>
+                    {badge && (
+                        <Badge className="bg-white/15 text-white border-none text-[9px] font-black uppercase">{badge}</Badge>
+                    )}
+                </div>
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-1">{label}</p>
+                    <p className="text-3xl font-black tracking-tight leading-none">{value}</p>
+                    {sub && <p className="mt-2 text-[10px] font-bold opacity-80">{sub}</p>}
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+function ShareBar({ share }: { share: number }) {
+    return (
+        <div className="flex items-center gap-2 min-w-[140px]">
+            <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                    style={{ width: `${Math.min(100, Math.max(2, share))}%` }}
+                />
+            </div>
+            <span className="text-[10px] font-black text-slate-400 w-10 text-right tabular-nums">{share.toFixed(1)}%</span>
+        </div>
+    )
+}
+
+function ActsPanel({ acts }: { acts: ActBreakdown }) {
+    const maxRevenue = Math.max(1, ...acts.items.map((i) => i.revenue))
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    icon={Activity}
+                    label="Revenus Actes Médicaux"
+                    value={fmt(acts.total)}
+                    badge="Recettes"
+                    className="bg-gradient-to-br from-emerald-600 to-emerald-500 text-white"
+                />
+                <StatCard
+                    icon={Repeat}
+                    label="Prestations Facturées"
+                    value={acts.usageCount.toLocaleString("fr-FR")}
+                    badge="Volume"
+                    className="bg-gradient-to-br from-blue-600 to-indigo-500 text-white"
+                />
+                <StatCard
+                    icon={ReceiptText}
+                    label="Factures Émises"
+                    value={acts.invoiceCount.toLocaleString("fr-FR")}
+                    badge="Documents"
+                    className="bg-gradient-to-br from-slate-700 to-slate-900 text-white"
+                />
+                <StatCard
+                    icon={Trophy}
+                    label="Acte le Plus Demandé"
+                    value={acts.top ? acts.top.name : "—"}
+                    sub={acts.top ? `${acts.top.usageCount} prestations • ${fmt(acts.top.revenue)}` : "Aucune activité sur la période"}
+                    badge="Top 1"
+                    className="bg-gradient-to-br from-amber-500 to-orange-500 text-white"
+                />
+            </div>
+
+            <Card className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="p-6 pb-3 flex items-center justify-between border-b border-slate-100">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Classement des Actes Médicaux</p>
+                            <p className="text-xs font-bold text-slate-400 mt-1">Triés par revenu généré — part de chaque acte dans le total</p>
+                        </div>
+                        <Badge variant="outline" className="rounded-full">{acts.items.length} actes</Badge>
+                    </div>
+                    {acts.items.length === 0 ? (
+                        <div className="py-14 text-center text-sm font-bold text-muted-foreground">
+                            Aucune prestation facturée sur la période sélectionnée
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                                    <tr>
+                                        {["#", "Acte Médical", "Code", "Utilisations", "Factures", "Revenu (FBU)", "Part du Revenu"].map((h, i) => (
+                                            <th key={h} className={cn(
+                                                "px-6 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400",
+                                                i >= 3 && "text-right"
+                                            )}>
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {acts.items.map((item, idx) => (
+                                        <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                                            <td className="px-6 py-4 text-xs font-black text-slate-300">#{idx + 1}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 dark:text-slate-100">
+                                                {item.name}
+                                                {idx === 0 && (
+                                                    <span className="ml-2 text-[8px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">Leader</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-xs font-black uppercase text-slate-400">{item.code}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-slate-700 tabular-nums">{item.usageCount}</td>
+                                            <td className="px-6 py-4 text-right text-sm text-slate-500 tabular-nums">{item.invoiceCount}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-black text-slate-900 dark:text-white tabular-nums">{item.revenue.toLocaleString("fr-FR")}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-end">
+                                                    <ShareBar share={(item.revenue / maxRevenue) * 100} />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-slate-50 dark:bg-slate-800/50">
+                                    <tr>
+                                        <td className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500" colSpan={3}>
+                                            Total {acts.usageCount} prestations • {acts.invoiceCount} factures
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-black text-slate-900 dark:text-white tabular-nums" colSpan={1}>
+                                            {acts.usageCount.toLocaleString("fr-FR")}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-black text-slate-900 dark:text-white tabular-nums" colSpan={1}>
+                                            {acts.invoiceCount.toLocaleString("fr-FR")}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-base font-black text-emerald-600 tabular-nums">
+                                            {acts.total.toLocaleString("fr-FR")}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-black text-emerald-600">100%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+function PharmacyPanel({ pharmacy }: { pharmacy: PharmacyBreakdown }) {
+    const maxRevenue = Math.max(1, ...pharmacy.items.map((i) => i.revenue))
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    icon={Pill}
+                    label="Revenus Pharmacie"
+                    value={fmt(pharmacy.total)}
+                    badge="Recettes"
+                    className="bg-gradient-to-br from-emerald-600 to-emerald-500 text-white"
+                />
+                <StatCard
+                    icon={Boxes}
+                    label="Unités Vendues"
+                    value={pharmacy.unitsSold.toLocaleString("fr-FR")}
+                    badge="Volume"
+                    className="bg-gradient-to-br from-blue-600 to-indigo-500 text-white"
+                />
+                <StatCard
+                    icon={Package}
+                    label="Transactions"
+                    value={pharmacy.transactionCount.toLocaleString("fr-FR")}
+                    badge="Ventes"
+                    className="bg-gradient-to-br from-slate-700 to-slate-900 text-white"
+                />
+                <StatCard
+                    icon={Trophy}
+                    label="Produit le Plus Vendu"
+                    value={pharmacy.top ? pharmacy.top.name : "—"}
+                    sub={pharmacy.top ? `${pharmacy.top.quantity.toLocaleString("fr-FR")} unités • ${fmt(pharmacy.top.revenue)}` : "Aucune vente sur la période"}
+                    badge="Top 1"
+                    className="bg-gradient-to-br from-amber-500 to-orange-500 text-white"
+                />
+            </div>
+
+            <Card className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="p-6 pb-3 flex items-center justify-between border-b border-slate-100">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Classement des Ventes Pharmacie</p>
+                            <p className="text-xs font-bold text-slate-400 mt-1">Triés par revenu généré — part de chaque produit dans le total</p>
+                        </div>
+                        <Badge variant="outline" className="rounded-full">{pharmacy.items.length} produits</Badge>
+                    </div>
+                    {pharmacy.items.length === 0 ? (
+                        <div className="py-14 text-center text-sm font-bold text-muted-foreground">
+                            Aucune vente en pharmacie sur la période sélectionnée
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                                    <tr>
+                                        {["#", "Produit", "Quantité Vendue", "Revenu (FBU)", "Part du Revenu"].map((h, i) => (
+                                            <th key={h} className={cn(
+                                                "px-6 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400",
+                                                i >= 2 && "text-right"
+                                            )}>
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {pharmacy.items.map((item, idx) => (
+                                        <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                                            <td className="px-6 py-4 text-xs font-black text-slate-300">#{idx + 1}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 dark:text-slate-100">
+                                                {item.name}
+                                                {idx === 0 && (
+                                                    <span className="ml-2 text-[8px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">Leader</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-sm font-bold text-slate-700 tabular-nums">{item.quantity.toLocaleString("fr-FR")}</td>
+                                            <td className="px-6 py-4 text-right text-sm font-black text-slate-900 dark:text-white tabular-nums">{item.revenue.toLocaleString("fr-FR")}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex justify-end">
+                                                    <ShareBar share={(item.revenue / maxRevenue) * 100} />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="bg-slate-50 dark:bg-slate-800/50">
+                                    <tr>
+                                        <td className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500" colSpan={2}>
+                                            Total {pharmacy.transactionCount} transactions • {pharmacy.unitsSold.toLocaleString("fr-FR")} unités
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-black text-slate-900 dark:text-white tabular-nums">
+                                            {pharmacy.unitsSold.toLocaleString("fr-FR")}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-base font-black text-emerald-600 tabular-nums">
+                                            {pharmacy.total.toLocaleString("fr-FR")}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-black text-emerald-600">100%</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
 
 export default function FinancePage() {
     const [from, setFrom] = useState("")
@@ -95,7 +408,7 @@ export default function FinancePage() {
             <div className="p-6 space-y-8 max-w-[1400px] mx-auto print:hidden">
                 <PageHeader
                     title="Console Financière"
-                    description="Suivi des recettes et charges sur une période"
+                    description="Analyse des recettes par centre de profit : actes médicaux & pharmacie"
                 >
                     <div className="flex items-end gap-3">
                         <div className="space-y-1">
@@ -199,62 +512,30 @@ export default function FinancePage() {
                             </Card>
                         </div>
 
-                        {/* Detailed flow table */}
-                        <Card className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden">
-                            <CardContent className="p-0">
-                                <div className="p-8 pb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Détail des Flux Financiers</p>
-                                </div>
-                                <div className="px-8 pb-8 space-y-8">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="size-2 rounded-full bg-emerald-500" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Recettes</p>
-                                        </div>
-                                        <div className="divide-y divide-slate-100 border-t border-b border-slate-200">
-                                            <div className="flex justify-between py-3.5">
-                                                <p className="text-sm font-bold text-slate-700">Ventes Pharmacie</p>
-                                                <p className="text-sm font-black text-slate-900 tabular-nums">{fmt(data.summary.breakdown.pharmacy)}</p>
-                                            </div>
-                                            <div className="flex justify-between py-3.5">
-                                                <p className="text-sm font-bold text-slate-700">Actes Médicaux & Prestations</p>
-                                                <p className="text-sm font-black text-slate-900 tabular-nums">{fmt(data.summary.breakdown.medicalActs)}</p>
-                                            </div>
-                                            <div className="flex justify-between py-3.5 bg-emerald-50/50 px-4 -mx-4">
-                                                <p className="text-sm font-black uppercase text-[10px] tracking-widest text-emerald-700 pt-0.5">Total Recettes</p>
-                                                <p className="text-base font-black text-emerald-700 tabular-nums">{fmt(data.summary.totalRevenue)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                        {/* Actes vs Pharmacie Tabs */}
+                        <div className="flex items-center gap-2">
+                            <FileCheck2 className="size-4 text-primary" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                                Analyse par Centre de Profit
+                            </p>
+                        </div>
 
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="size-2 rounded-full bg-rose-500" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-rose-600">Charges</p>
-                                        </div>
-                                        <div className="divide-y divide-slate-100 border-t border-b border-slate-200">
-                                            <div className="flex justify-between py-3.5">
-                                                <p className="text-sm font-bold text-slate-700">Achats Médicaments</p>
-                                                <p className="text-sm font-black text-slate-900 tabular-nums">{fmt(data.summary.breakdown.purchases)}</p>
-                                            </div>
-                                            <div className="flex justify-between py-3.5">
-                                                <p className="text-sm font-bold text-slate-700">Frais Opérationnels</p>
-                                                <p className="text-sm font-black text-slate-900 tabular-nums">{fmt(data.summary.breakdown.expenses)}</p>
-                                            </div>
-                                            <div className="flex justify-between py-3.5 bg-rose-50/50 px-4 -mx-4">
-                                                <p className="text-sm font-black uppercase text-[10px] tracking-widest text-rose-700 pt-0.5">Total Charges</p>
-                                                <p className="text-base font-black text-rose-700 tabular-nums">{fmt(data.summary.totalCosts)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-between items-center bg-slate-900 text-white rounded-2xl px-6 py-5">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">Résultat Net de la Période</p>
-                                        <p className="text-2xl font-black tabular-nums">{fmt(data.summary.netBalance)}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <Tabs defaultValue="acts" className="w-full">
+                            <TabsList className="h-12 gap-1 rounded-2xl bg-white border border-border shadow-sm p-1.5">
+                                <TabsTrigger value="acts" className="rounded-xl data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest px-6">
+                                    <Activity className="size-4 mr-1.5" /> Actes Médicaux
+                                </TabsTrigger>
+                                <TabsTrigger value="pharmacy" className="rounded-xl data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest px-6">
+                                    <Pill className="size-4 mr-1.5" /> Pharmacie
+                                </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="acts" className="mt-6">
+                                <ActsPanel acts={data.acts} />
+                            </TabsContent>
+                            <TabsContent value="pharmacy" className="mt-6">
+                                <PharmacyPanel pharmacy={data.pharmacy} />
+                            </TabsContent>
+                        </Tabs>
                     </>
                 ) : (
                     <div className="h-[40vh] flex items-center justify-center text-sm font-bold text-muted-foreground">

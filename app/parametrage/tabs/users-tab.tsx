@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2, Edit2, Power, PowerOff } from 'lucide-react'
+import { Plus, Edit2, Power, PowerOff } from 'lucide-react'
 
 interface User {
   id: string
@@ -38,7 +38,7 @@ interface PaginationInfo {
   totalPages: number
 }
 
-const ROLES = ['admin', 'user', 'doctor', 'cashier', 'pharmacist', 'receptionist']
+const ROLES = ['admin', 'manager', 'user', 'doctor', 'cashier', 'pharmacist', 'receptionist']
 
 export default function UsersTab() {
   const [users, setUsers] = useState<User[]>([])
@@ -141,19 +141,6 @@ export default function UsersTab() {
       fetchUsers()
     } catch (err) {
       setError('Failed to update user status')
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this user?')) return
-
-    try {
-      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete')
-      setSuccess('User deleted successfully')
-      fetchUsers()
-    } catch (err) {
-      setError('Failed to delete user')
     }
   }
 
@@ -338,15 +325,6 @@ export default function UsersTab() {
                           className={user.isActive ? 'text-blue-600 hover:text-blue-700' : 'text-orange-600 hover:text-orange-700'}
                         >
                           {user.isActive ? <Power className="size-4" /> : <PowerOff className="size-4" />}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(user.id)}
-                          className="text-red-600 hover:text-red-700"
-                          title="Delete user"
-                        >
-                          <Trash2 className="size-4" />
                         </Button>
                       </div>
                     </td>

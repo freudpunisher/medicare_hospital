@@ -1,5 +1,37 @@
 import React from "react"
 
+interface ActItem {
+    id: string
+    name: string
+    code: string
+    usageCount: number
+    invoiceCount: number
+    revenue: number
+}
+
+interface ActBreakdown {
+    total: number
+    usageCount: number
+    invoiceCount: number
+    top: { name: string; usageCount: number; revenue: number } | null
+    items: ActItem[]
+}
+
+interface PharmacyItem {
+    id: string
+    name: string
+    quantity: number
+    revenue: number
+}
+
+interface PharmacyBreakdown {
+    total: number
+    unitsSold: number
+    transactionCount: number
+    top: { name: string; quantity: number; revenue: number } | null
+    items: PharmacyItem[]
+}
+
 interface FinanceData {
     summary: {
         totalRevenue: number
@@ -12,17 +44,16 @@ interface FinanceData {
             expenses: number
         }
     }
+    acts: ActBreakdown
+    pharmacy: PharmacyBreakdown
     from: string | null
     to: string | null
 }
 
-interface FinanceReportProps {
-    data: FinanceData | null
-    ref: React.RefObject<HTMLDivElement>
-}
-
 const fmtDate = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString("fr-FR") : null
+
+const money = (n: number) => `${n.toLocaleString("fr-FR")}`
 
 export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceData | null }>(
     ({ data }, ref) => {
@@ -37,6 +68,9 @@ export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceD
                 : toLabel
                     ? `Jusqu'au ${toLabel}`
                     : "Tout l'historique"
+
+        const acts = data.acts
+        const pharmacy = data.pharmacy
 
         return (
             <div ref={ref} className="bg-white text-slate-800 p-[15mm] font-serif w-[210mm] min-h-[297mm] mx-auto shadow-none">
@@ -57,15 +91,15 @@ export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceD
                 <div className="grid grid-cols-3 gap-6 mb-12">
                     <div className="bg-slate-50 p-6 border-l-4 border-slate-900">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Revenus</p>
-                        <p className="text-xl font-black text-slate-900">{data.summary.totalRevenue.toLocaleString()} <span className="text-[10px]">FBU</span></p>
+                        <p className="text-xl font-black text-slate-900">{money(data.summary.totalRevenue)} <span className="text-[10px]">FBU</span></p>
                     </div>
                     <div className="bg-slate-50 p-6 border-l-4 border-slate-400">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Charges</p>
-                        <p className="text-xl font-black text-slate-900">{data.summary.totalCosts.toLocaleString()} <span className="text-[10px]">FBU</span></p>
+                        <p className="text-xl font-black text-slate-900">{money(data.summary.totalCosts)} <span className="text-[10px]">FBU</span></p>
                     </div>
                     <div className="bg-slate-900 p-6 text-white shadow-xl">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mb-2">Solde Net</p>
-                        <p className="text-xl font-black whitespace-nowrap">{data.summary.netBalance.toLocaleString()} <span className="text-[10px]">FBU</span></p>
+                        <p className="text-xl font-black whitespace-nowrap">{money(data.summary.netBalance)} <span className="text-[10px]">FBU</span></p>
                     </div>
                 </div>
 
@@ -86,22 +120,105 @@ export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceD
                         <tbody className="divide-y divide-slate-100">
                             <tr>
                                 <td className="py-4 px-4 font-bold text-slate-700">Pharmacie (Ventes Médicaments)</td>
-                                <td className="py-4 px-4 text-right font-black text-slate-900">{data.summary.breakdown.pharmacy.toLocaleString()}</td>
+                                <td className="py-4 px-4 text-right font-black text-slate-900">{money(data.summary.breakdown.pharmacy)}</td>
                                 <td className="py-4 px-4 text-right text-slate-400 italic">{((data.summary.breakdown.pharmacy / data.summary.totalRevenue) * 100).toFixed(1)}%</td>
                             </tr>
                             <tr>
                                 <td className="py-4 px-4 font-bold text-slate-700">Actes Médicaux & Prestations</td>
-                                <td className="py-4 px-4 text-right font-black text-slate-900">{data.summary.breakdown.medicalActs.toLocaleString()}</td>
+                                <td className="py-4 px-4 text-right font-black text-slate-900">{money(data.summary.breakdown.medicalActs)}</td>
                                 <td className="py-4 px-4 text-right text-slate-400 italic">{((data.summary.breakdown.medicalActs / data.summary.totalRevenue) * 100).toFixed(1)}%</td>
                             </tr>
                             <tr className="bg-slate-50/50">
                                 <td className="py-4 px-4 font-black uppercase text-[10px] text-slate-900">Total Recettes Brut</td>
-                                <td className="py-4 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{data.summary.totalRevenue.toLocaleString()}</td>
+                                <td className="py-4 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{money(data.summary.totalRevenue)}</td>
                                 <td className="py-4 px-4 text-right font-black text-slate-900">100%</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+
+                {/* Top Medical Acts */}
+                {acts && acts.items.length > 0 && (
+                    <div className="mb-10">
+                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-2 mb-4 flex justify-between">
+                            <span>Top Actes Médicaux</span>
+                            <span className="text-[10px] font-bold text-slate-400 italic">Volume & Revenus</span>
+                        </h2>
+                        <table className="w-full text-[12px]">
+                            <thead>
+                                <tr className="bg-slate-50 text-slate-400 font-black uppercase text-[9px] tracking-widest">
+                                    <th className="py-3 px-4 text-left">Acte Médical</th>
+                                    <th className="py-3 px-4 text-right">Utilisations</th>
+                                    <th className="py-3 px-4 text-right">Revenu (FBU)</th>
+                                    <th className="py-3 px-4 text-right w-24">Poids (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {acts.items.slice(0, 15).map((item, idx) => (
+                                    <tr key={item.id}>
+                                        <td className="py-3 px-4 font-bold text-slate-700">
+                                            <span className="text-slate-400 mr-2">#{idx + 1}</span>
+                                            {item.name}
+                                            <span className="text-[9px] text-slate-400 ml-2 uppercase">{item.code}</span>
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-slate-600">{item.usageCount}</td>
+                                        <td className="py-3 px-4 text-right font-black text-slate-900">{money(item.revenue)}</td>
+                                        <td className="py-3 px-4 text-right text-slate-400 italic">{((item.revenue / acts.total) * 100).toFixed(1)}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr className="bg-slate-50/50">
+                                    <td className="py-3 px-4 font-black uppercase text-[10px] text-slate-900">Total Actes ({acts.usageCount} prestations)</td>
+                                    <td className="py-3 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{acts.usageCount}</td>
+                                    <td className="py-3 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{money(acts.total)}</td>
+                                    <td className="py-3 px-4 text-right font-black text-slate-900">100%</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
+
+                {/* Top Pharmacy Sales */}
+                {pharmacy && pharmacy.items.length > 0 && (
+                    <div className="mb-10">
+                        <h2 className="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-2 mb-4 flex justify-between">
+                            <span>Top Ventes Pharmacie</span>
+                            <span className="text-[10px] font-bold text-slate-400 italic">Volume & Revenus</span>
+                        </h2>
+                        <table className="w-full text-[12px]">
+                            <thead>
+                                <tr className="bg-slate-50 text-slate-400 font-black uppercase text-[9px] tracking-widest">
+                                    <th className="py-3 px-4 text-left">Produit</th>
+                                    <th className="py-3 px-4 text-right">Quantité Vendue</th>
+                                    <th className="py-3 px-4 text-right">Revenu (FBU)</th>
+                                    <th className="py-3 px-4 text-right w-24">Poids (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {pharmacy.items.slice(0, 15).map((item, idx) => (
+                                    <tr key={item.id}>
+                                        <td className="py-3 px-4 font-bold text-slate-700">
+                                            <span className="text-slate-400 mr-2">#{idx + 1}</span>
+                                            {item.name}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-slate-600">{item.quantity}</td>
+                                        <td className="py-3 px-4 text-right font-black text-slate-900">{money(item.revenue)}</td>
+                                        <td className="py-3 px-4 text-right text-slate-400 italic">{((item.revenue / pharmacy.total) * 100).toFixed(1)}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr className="bg-slate-50/50">
+                                    <td className="py-3 px-4 font-black uppercase text-[10px] text-slate-900">Total Ventes ({pharmacy.transactionCount} transactions)</td>
+                                    <td className="py-3 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{pharmacy.unitsSold}</td>
+                                    <td className="py-3 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{money(pharmacy.total)}</td>
+                                    <td className="py-3 px-4 text-right font-black text-slate-900">100%</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
 
                 {/* Expenditures Breakdown */}
                 <div className="mb-12">
@@ -120,17 +237,17 @@ export const FinanceReportA4 = React.forwardRef<HTMLDivElement, { data: FinanceD
                         <tbody className="divide-y divide-slate-100">
                             <tr>
                                 <td className="py-4 px-4 font-bold text-slate-700">Approvisionnement Pharmacie (Achats)</td>
-                                <td className="py-4 px-4 text-right font-black text-slate-900">{data.summary.breakdown.purchases.toLocaleString()}</td>
+                                <td className="py-4 px-4 text-right font-black text-slate-900">{money(data.summary.breakdown.purchases)}</td>
                                 <td className="py-4 px-4 text-right text-slate-400 italic">{((data.summary.breakdown.purchases / data.summary.totalCosts) * 100).toFixed(1)}%</td>
                             </tr>
                             <tr>
                                 <td className="py-4 px-4 font-bold text-slate-700">Frais Opérationnels & Divers</td>
-                                <td className="py-4 px-4 text-right font-black text-slate-900">{data.summary.breakdown.expenses.toLocaleString()}</td>
+                                <td className="py-4 px-4 text-right font-black text-slate-900">{money(data.summary.breakdown.expenses)}</td>
                                 <td className="py-4 px-4 text-right text-slate-400 italic">{((data.summary.breakdown.expenses / data.summary.totalCosts) * 100).toFixed(1)}%</td>
                             </tr>
                             <tr className="bg-slate-50/50">
                                 <td className="py-4 px-4 font-black uppercase text-[10px] text-slate-900">Total Charges Opérationnelles</td>
-                                <td className="py-4 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{data.summary.totalCosts.toLocaleString()}</td>
+                                <td className="py-4 px-4 text-right font-black text-slate-900 border-t-2 border-slate-900">{money(data.summary.totalCosts)}</td>
                                 <td className="py-4 px-4 text-right font-black text-slate-900">100%</td>
                             </tr>
                         </tbody>
