@@ -158,6 +158,7 @@ export default function BillingPage() {
   const [loadingActs, setLoadingActs] = useState(false)
   const [loadingServices, setLoadingServices] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [thermalWidth, setThermalWidth] = useState<"72mm" | "54mm">("72mm")
 
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "card" | "loan">("cash")
   const [paymentReference, setPaymentReference] = useState("")
@@ -487,24 +488,30 @@ export default function BillingPage() {
     const receiptHtml = receiptRef.current?.innerHTML;
     if (!receiptHtml) return;
 
+    const W = thermalWidth;
+    const FONT = W === "72mm" ? "10px" : "9px";
+    const PAY_FONT = W === "72mm" ? "13px" : "11px";
+    const TITLE_FONT = W === "72mm" ? "12px" : "10px";
+
     const win = window.open("", "_blank", "width=800,height=500");
     if (!win) return;
 
-    win.document.write(`
+    win.document.write(`<!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8" />
           <title>Reçu - ${invoiceData.invoiceNumber}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             html, body {
               height: auto;
-              width: 72mm;
-              max-width: 72mm;
+              width: ${W};
+              max-width: ${W};
               overflow: visible;
             }
             body {
               font-family: 'Courier New', Courier, monospace;
-              font-size: 10px;
+              font-size: ${FONT};
               font-weight: 400;
               background: #fff;
               padding: 0;
@@ -514,7 +521,7 @@ export default function BillingPage() {
               overflow-wrap: break-word;
             }
             .receipt-container {
-              width: 72mm;
+              width: ${W};
               padding: 1mm 1.5mm;
               margin: 0;
               background: #fff;
@@ -543,7 +550,7 @@ export default function BillingPage() {
             }
             .info-table td, .receipt-table td, .receipt-table th, .total-table td {
               font-family: 'Courier New', Courier, monospace;
-              font-size: 10px;
+              font-size: ${FONT};
               line-height: 1.15;
               padding: 0.5px 0;
               vertical-align: top;
@@ -582,7 +589,7 @@ export default function BillingPage() {
               font-weight: bold;
             }
             .total-table tr.pay-row td {
-              font-size: 13px;
+              font-size: ${PAY_FONT};
               font-weight: 900;
               border-top: 1px solid #000;
               border-bottom: 1px solid #000;
@@ -590,14 +597,14 @@ export default function BillingPage() {
             }
             #print-content { display: block; width: 100%; }
             @media print {
-              @page { size: 72mm auto; margin: 0mm; }
+              @page { size: ${W} auto; margin: 0mm; }
               html, body {
                 height: auto !important;
                 min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 72mm !important;
-                max-width: 72mm !important;
+                width: ${W} !important;
+                max-width: ${W} !important;
                 overflow: visible !important;
               }
               #print-content { page-break-after: avoid; break-after: avoid; }
@@ -703,7 +710,26 @@ export default function BillingPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader title="Facturation" description="Gérer les factures et les paiements immédiats" />
+      <PageHeader title="Facturation" description="Gérer les factures et les paiements immédiats">
+        <div className="flex bg-muted rounded-xl p-1 border border-border">
+          <Button
+            variant={thermalWidth === "72mm" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setThermalWidth("72mm")}
+            className="text-[10px] font-black uppercase px-4 h-8 rounded-lg"
+          >
+            80mm
+          </Button>
+          <Button
+            variant={thermalWidth === "54mm" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setThermalWidth("54mm")}
+            className="text-[10px] font-black uppercase px-4 h-8 rounded-lg"
+          >
+            58mm
+          </Button>
+        </div>
+      </PageHeader>
 
       {/* Off-screen thermal receipt container */}
       <div style={{ position: "fixed", left: "-9999px", top: 0 }}>
@@ -711,7 +737,7 @@ export default function BillingPage() {
           {lastInvoice && (
             <div className="receipt-container">
               <div className="text-center mb-2">
-                <h2 className="font-bold uppercase" style={{ fontSize: '12px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                <h2 className="font-bold uppercase" style={{ fontSize: thermalWidth === "72mm" ? '12px' : '10px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
                 <p className="font-bold">NIF: 500253456</p>
                 <p>SURL | RC: 00734372/25</p>
                 <p>Centre fiscal: DPMC</p>
