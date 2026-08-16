@@ -6,6 +6,9 @@ interface CurrentUser {
     username: string
     fullName: string | null
     role: UserRole
+    email: string | null
+    phone: string | null
+    createdAt: string | null
 }
 
 interface UseCurrentUserResult {

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import LoginAwareLayout from '@/components/login-aware-layout'
+import { IdleSessionGuard } from '@/components/idle-session-guard'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -54,6 +55,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LoginAwareLayout>{children}</LoginAwareLayout>
+          <IdleSessionGuard />
           <Toaster />
         </ThemeProvider>
         <Analytics />

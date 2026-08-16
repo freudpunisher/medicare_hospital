@@ -27,6 +27,11 @@ export async function GET() {
                 username: users.username,
                 fullName: users.fullName,
                 role: users.role,
+                email: users.email,
+                phone: users.phone,
+                specialtyId: users.specialtyId,
+                licenseNumber: users.licenseNumber,
+                createdAt: users.createdAt,
             })
             .from(users)
             .where(eq(users.id, session.userId))

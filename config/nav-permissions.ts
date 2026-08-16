@@ -6,8 +6,8 @@
  * roles:
  *   - "admin"        → Full access to every group
  *   - "doctor"       → Clinical: consultations, laboratory, hospital
- *   - "receptionist" → Registration: dashboard, patients, insurance, billing
- *   - "cashier"      → Dashboard, patients, insurance, billing
+ *   - "receptionist" → Registration: dashboard, patients, insurance, billing, finance
+ *   - "cashier"      → Dashboard, patients, insurance, billing, finance
  *   - "pharmacist"   → Pharmacy only
  *   - "user"         → Default / read-only baseline (dashboard, patients)
  *
@@ -30,7 +30,7 @@ export const NAV_PERMISSIONS: NavPermission[] = [
     { group: "Insurance", roles: ["admin", "receptionist", "cashier"] },
     { group: "Billing", roles: ["admin", "receptionist", "cashier"] },
     { group: "Pharmacy", roles: ["admin", "pharmacist"] },
-    { group: "Finance", roles: ["admin"] },
+    { group: "Finance", roles: ["admin", "receptionist", "cashier"] },
     { group: "Comptabilité", roles: ["admin"] },
     { group: "System", roles: ["admin", "user"] },
     { group: "Hospital", roles: ["admin", "doctor"] },

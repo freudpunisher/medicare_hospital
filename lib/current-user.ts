@@ -10,9 +10,17 @@ export async function getCurrentUserId(): Promise<string | null> {
         if (!token) return null
 
         const [session] = await db
-            .select({ userId: sessions.userId })
+            .select({ userId: sessions.userId, expiresAt: sessions.expiresAt })
             .from(sessions)
             .where(eq(sessions.token, token))
+
+        if (!session) return null
+
+        // Enforce server-side expiry: expired sessions are invalidated
+        if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+            await db.delete(sessions).where(eq(sessions.token, token))
+            return null
+        }
 
         return session?.userId ?? null
     } catch {

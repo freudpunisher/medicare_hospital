@@ -496,21 +496,26 @@ export default function BillingPage() {
           <title>Reçu - ${invoiceData.invoiceNumber}</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
-            html { height: auto; }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              font-size: 11px;
-              font-weight: 400;
-              background: #fff;
+            html, body {
+              height: auto;
               width: 72mm;
               max-width: 72mm;
+              overflow: visible;
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 10px;
+              font-weight: 400;
+              background: #fff;
               padding: 0;
               margin: 0;
-              line-height: 1.25;
+              line-height: 1.15;
+              word-break: break-word;
+              overflow-wrap: break-word;
             }
             .receipt-container {
               width: 72mm;
-              padding: 2mm;
+              padding: 1mm 1.5mm;
               margin: 0;
               background: #fff;
             }
@@ -520,28 +525,30 @@ export default function BillingPage() {
             .font-black { font-weight: 900; }
             .uppercase { text-transform: uppercase; }
             .italic { font-style: italic; }
-            .mt-1 { margin-top: 2px; }
-            .mb-2 { margin-bottom: 4px; }
+            .mt-1 { margin-top: 1px; }
+            .mb-2 { margin-bottom: 2px; }
             
             hr {
               border: 0;
               border-top: 1px dashed #000;
-              margin: 4px 0;
+              margin: 2px 0;
               height: 0;
             }
             
             .info-table, .receipt-table, .total-table {
               width: 100%;
               border-collapse: collapse;
-              margin: 3px 0;
+              margin: 2px 0;
               table-layout: fixed;
             }
             .info-table td, .receipt-table td, .receipt-table th, .total-table td {
               font-family: 'Courier New', Courier, monospace;
-              font-size: 11px;
-              line-height: 1.25;
-              padding: 1px 0;
+              font-size: 10px;
+              line-height: 1.15;
+              padding: 0.5px 0;
               vertical-align: top;
+              word-break: break-word;
+              overflow-wrap: break-word;
             }
             
             .info-table td.lbl {
@@ -575,21 +582,22 @@ export default function BillingPage() {
               font-weight: bold;
             }
             .total-table tr.pay-row td {
-              font-size: 15px;
+              font-size: 13px;
               font-weight: 900;
               border-top: 1px solid #000;
               border-bottom: 1px solid #000;
-              padding: 3px 0;
+              padding: 2px 0;
             }
             #print-content { display: block; width: 100%; }
             @media print {
-              @page { size: auto; margin: 0mm; }
+              @page { size: 72mm auto; margin: 0mm; }
               html, body {
                 height: auto !important;
                 min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 width: 72mm !important;
+                max-width: 72mm !important;
                 overflow: visible !important;
               }
               #print-content { page-break-after: avoid; break-after: avoid; }
@@ -703,9 +711,9 @@ export default function BillingPage() {
           {lastInvoice && (
             <div className="receipt-container">
               <div className="text-center mb-2">
-                <h2 className="font-bold uppercase" style={{ fontSize: '13px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
+                <h2 className="font-bold uppercase" style={{ fontSize: '12px' }}>CLINIQUE MEDICO-DENTAIRE<br />Le SOURIRE</h2>
                 <p className="font-bold">NIF: 500253456</p>
-                <p>Forme juridique: SURL | RC: 00734372/25</p>
+                <p>SURL | RC: 00734372/25</p>
                 <p>Centre fiscal: DPMC</p>
               </div>
 
@@ -737,7 +745,7 @@ export default function BillingPage() {
               </table>
 
               {lastInvoice.selectedInsurances && lastInvoice.selectedInsurances.length > 0 && (
-                <div style={{ marginTop: '4px' }}>
+                <div style={{ marginTop: '2px' }}>
                   <p className="font-bold">ASSURANCES ({lastInvoice.selectedInsurances.length}):</p>
                   <table className="info-table" style={{ margin: 0 }}>
                     <tbody>
@@ -798,8 +806,8 @@ export default function BillingPage() {
                     <td className="val">{lastInvoice.totals.patTotal.toLocaleString()} FBU</td>
                   </tr>
                   <tr>
-                    <td className="lbl" style={{ paddingTop: '4px' }}>MODE:</td>
-                    <td className="val uppercase" style={{ paddingTop: '4px' }}>
+                    <td className="lbl" style={{ paddingTop: '2px' }}>MODE:</td>
+                    <td className="val uppercase" style={{ paddingTop: '2px' }}>
                       {lastInvoice.paymentMethod === 'cash' ? 'CASH' :
                         lastInvoice.paymentMethod === 'mobile_money' ? 'MOB MONEY' :
                           lastInvoice.paymentMethod === 'card' ? 'CARTE' : 'DETTE'}
@@ -816,9 +824,9 @@ export default function BillingPage() {
 
               <hr />
 
-              <p className="text-center italic font-black" style={{ fontSize: '11px', margin: '6px 0' }}>*** Merci de votre confiance ***</p>
+              <p className="text-center italic font-black" style={{ fontSize: '9px', margin: '4px 0' }}>*** Merci de votre confiance ***</p>
               <p className="text-center font-bold" style={{ fontSize: '9px' }}>*** Aucun remboursement ***</p>
-              <p className="text-center font-bold" style={{ fontSize: '9px', opacity: 0.8 }}>{lastInvoice.id}</p>
+              <p className="text-center font-bold" style={{ fontSize: '8px', opacity: 0.8 }}>{lastInvoice.id}</p>
             </div>
           )}
         </div>
