@@ -301,6 +301,7 @@ function ThermalReceipt({ sale, cashier }: { sale: SaleDetail, cashier: string }
 
             <div className="text-center space-y-1 pb-4">
                 <p className="text-[9px] font-bold">MERCI DE VOTRE CONFIANCE</p>
+                <p className="text-[9px] font-bold">*** Aucun remboursement ***</p>
                 <p className="text-[7px] leading-tight">Les médicaments ne sont pas repris<br />ni échangés</p>
                 <div style={{ opacity: 0.1, fontSize: '8px' }}>***</div>
             </div>
