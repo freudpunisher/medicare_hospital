@@ -157,6 +157,13 @@
   }
   
   @page {
-    margin: 0;
+    size: A4 portrait;
+    margin: 14mm 12mm 16mm;
+  }
+
+  /* Paper documents (.rp) render themselves; the app chrome is suppressed so
+     a printout never looks like a screenshot of the UI. */
+  .rp-scope-off {
+    display: none !important;
   }
 }
